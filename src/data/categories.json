@@ -1,0 +1,62 @@
+[
+  {
+    "id": "women-dresses",
+    "name": "Dresses",
+    "slug": "dresses",
+    "gender": "women"
+  },
+  {
+    "id": "women-tops",
+    "name": "Tops & Blouses",
+    "slug": "tops",
+    "gender": "women"
+  },
+  {
+    "id": "women-skirts",
+    "name": "Skirts",
+    "slug": "skirts",
+    "gender": "women"
+  },
+  {
+    "id": "women-pants",
+    "name": "Pants & Trousers",
+    "slug": "pants",
+    "gender": "women"
+  },
+  {
+    "id": "women-accessories",
+    "name": "Accessories",
+    "slug": "accessories",
+    "gender": "women"
+  },
+  {
+    "id": "men-shirts",
+    "name": "Shirts",
+    "slug": "shirts",
+    "gender": "men"
+  },
+  {
+    "id": "men-pants",
+    "name": "Pants & Trousers",
+    "slug": "pants",
+    "gender": "men"
+  },
+  {
+    "id": "men-suits",
+    "name": "Suits & Blazers",
+    "slug": "suits",
+    "gender": "men"
+  },
+  {
+    "id": "men-traditional",
+    "name": "Traditional Wear",
+    "slug": "traditional",
+    "gender": "men"
+  },
+  {
+    "id": "men-accessories",
+    "name": "Accessories",
+    "slug": "accessories",
+    "gender": "men"
+  }
+]

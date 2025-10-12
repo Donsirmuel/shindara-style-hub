@@ -12,7 +12,9 @@
     "colors": ["Multi-color"],
     "inStock": true,
     "featured": true,
-    "trending": true
+    "trending": true,
+    "hotDeal": true,
+    "newArrival": true
   },
   {
     "id": "prod-002",
@@ -25,7 +27,8 @@
     "sizes": ["S", "M", "L"],
     "colors": ["Navy", "Wine", "Black"],
     "inStock": true,
-    "featured": true
+    "featured": true,
+    "latestCollection": true
   },
   {
     "id": "prod-003",
@@ -38,7 +41,8 @@
     "sizes": ["XS", "S", "M", "L", "XL"],
     "colors": ["White", "Blush", "Black"],
     "inStock": true,
-    "trending": true
+    "trending": true,
+    "newArrival": true
   },
   {
     "id": "prod-004",
@@ -50,7 +54,8 @@
     "gender": "women",
     "sizes": ["S", "M", "L", "XL"],
     "colors": ["Black", "Navy", "Khaki"],
-    "inStock": true
+    "inStock": true,
+    "latestCollection": true
   },
   {
     "id": "prod-005",
@@ -64,7 +69,8 @@
     "sizes": ["S", "M", "L", "XL", "XXL"],
     "colors": ["Black", "Camel", "Olive"],
     "inStock": true,
-    "featured": true
+    "featured": true,
+    "hotDeal": true
   },
   {
     "id": "prod-006",
@@ -76,7 +82,8 @@
     "gender": "women",
     "sizes": ["One Size"],
     "colors": ["Tan", "Black", "Burgundy"],
-    "inStock": true
+    "inStock": true,
+    "newArrival": true
   },
   {
     "id": "prod-007",
@@ -89,7 +96,8 @@
     "sizes": ["M", "L", "XL", "XXL", "XXXL"],
     "colors": ["White", "Cream", "Sky Blue"],
     "inStock": true,
-    "featured": true
+    "featured": true,
+    "latestCollection": true
   },
   {
     "id": "prod-008",
@@ -102,7 +110,8 @@
     "sizes": ["S", "M", "L", "XL", "XXL"],
     "colors": ["White", "Light Blue", "Pink"],
     "inStock": true,
-    "trending": true
+    "trending": true,
+    "newArrival": true
   },
   {
     "id": "prod-009",
@@ -115,7 +124,8 @@
     "gender": "men",
     "sizes": ["30", "32", "34", "36", "38", "40"],
     "colors": ["Khaki", "Navy", "Black", "Olive"],
-    "inStock": true
+    "inStock": true,
+    "hotDeal": true
   },
   {
     "id": "prod-010",
@@ -129,7 +139,9 @@
     "sizes": ["M", "L", "XL", "XXL"],
     "colors": ["Charcoal", "Navy", "Black"],
     "inStock": true,
-    "featured": true
+    "featured": true,
+    "hotDeal": true,
+    "latestCollection": true
   },
   {
     "id": "prod-011",
@@ -142,7 +154,8 @@
     "sizes": ["M", "L", "XL", "XXL"],
     "colors": ["White", "Gold", "Royal Blue"],
     "inStock": true,
-    "trending": true
+    "trending": true,
+    "latestCollection": true
   },
   {
     "id": "prod-012",
@@ -154,6 +167,7 @@
     "gender": "men",
     "sizes": ["32", "34", "36", "38", "40"],
     "colors": ["Black", "Brown", "Tan"],
-    "inStock": true
+    "inStock": true,
+    "newArrival": true
   }
 ]

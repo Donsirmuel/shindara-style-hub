@@ -12,6 +12,9 @@ export default function Home() {
   const products = productsData as Product[];
   const featuredProducts = products.filter((p) => p.featured);
   const trendingProducts = products.filter((p) => p.trending);
+  const newArrivals = products.filter((p) => p.newArrival);
+  const latestCollection = products.filter((p) => p.latestCollection);
+  const hotDeals = products.filter((p) => p.hotDeal);
 
   return (
     <div className="flex flex-col">
@@ -46,6 +49,42 @@ export default function Home() {
                 <Link to="/men">Shop Men</Link>
               </Button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* New Arrivals */}
+      <section className="py-16 md:py-24">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">New Arrivals</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Fresh styles just in - be the first to shop our newest pieces
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {newArrivals.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Hot Deals */}
+      <section className="py-16 md:py-24 bg-accent/10">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Hottest Deals 🔥</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Limited time offers on your favorite items - grab them before they're gone
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {hotDeals.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         </div>
       </section>
@@ -106,6 +145,24 @@ export default function Home() {
                 </div>
               </div>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Latest Collection */}
+      <section className="py-16 md:py-24">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Latest Collection</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Discover our most recent fashion curations
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {latestCollection.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         </div>
       </section>

@@ -12,6 +12,9 @@ export interface Product {
   inStock: boolean;
   featured?: boolean;
   trending?: boolean;
+  newArrival?: boolean;
+  latestCollection?: boolean;
+  hotDeal?: boolean;
 }
 
 export interface CartItem {

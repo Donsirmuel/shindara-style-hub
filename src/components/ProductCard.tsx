@@ -30,7 +30,12 @@ export function ProductCard({ product }: ProductCardProps) {
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
             loading="lazy"
           />
-          {discount > 0 && (
+          {product.newArrival && !product.hotDeal && (
+            <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground">
+              NEW
+            </Badge>
+          )}
+          {product.hotDeal && discount > 0 && (
             <Badge className="absolute top-2 right-2 bg-destructive text-destructive-foreground">
               -{discount}%
             </Badge>

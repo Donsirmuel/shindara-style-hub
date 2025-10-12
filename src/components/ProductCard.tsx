@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Product } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { StarRating } from '@/components/StarRating';
 
 interface ProductCardProps {
   product: Product;
@@ -65,6 +66,17 @@ export function ProductCard({ product }: ProductCardProps) {
             </span>
           )}
         </div>
+
+        {product.rating && (
+          <div className="mt-2">
+            <StarRating 
+              rating={product.rating} 
+              showNumber 
+              reviewCount={product.reviewCount} 
+              size="sm"
+            />
+          </div>
+        )}
 
         <div className="flex items-center gap-2 mt-2">
           {product.colors.slice(0, 3).map((color, index) => (

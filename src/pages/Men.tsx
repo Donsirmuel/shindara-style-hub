@@ -14,7 +14,8 @@ export default function Men() {
   const categories = (categoriesData as Category[]).filter((c) => c.gender === 'men');
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
+  const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'rating' | 'popularity' | 'newest'>('default');
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
 
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories((prev) =>
@@ -27,18 +28,33 @@ export default function Men() {
   const filteredProducts = useMemo(() => {
     let filtered = products;
 
+    // Filter by category
     if (selectedCategories.length > 0) {
       filtered = filtered.filter((p) => selectedCategories.includes(p.category));
     }
 
+    // Filter by price range
+    filtered = filtered.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1]);
+
+    // Sort products
     if (sortBy === 'price-asc') {
       filtered = [...filtered].sort((a, b) => a.price - b.price);
     } else if (sortBy === 'price-desc') {
       filtered = [...filtered].sort((a, b) => b.price - a.price);
+    } else if (sortBy === 'rating') {
+      filtered = [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    } else if (sortBy === 'popularity') {
+      filtered = [...filtered].sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
+    } else if (sortBy === 'newest') {
+      filtered = [...filtered].sort((a, b) => {
+        if (a.newArrival && !b.newArrival) return -1;
+        if (!a.newArrival && b.newArrival) return 1;
+        return 0;
+      });
     }
 
     return filtered;
-  }, [products, selectedCategories, sortBy]);
+  }, [products, selectedCategories, sortBy, priceRange]);
 
   const FilterContent = () => (
     <div className="space-y-6">
@@ -61,6 +77,53 @@ export default function Men() {
       </div>
 
       <div>
+        <h3 className="font-semibold mb-4">Price Range</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between text-sm">
+            <span>₦{priceRange[0].toLocaleString()}</span>
+            <span>₦{priceRange[1].toLocaleString()}</span>
+          </div>
+          <div className="space-y-2">
+            <Button
+              variant={priceRange[1] === 10000 ? 'secondary' : 'ghost'}
+              className="w-full justify-start text-sm"
+              onClick={() => setPriceRange([0, 10000])}
+            >
+              Under ₦10,000
+            </Button>
+            <Button
+              variant={priceRange[0] === 10000 && priceRange[1] === 25000 ? 'secondary' : 'ghost'}
+              className="w-full justify-start text-sm"
+              onClick={() => setPriceRange([10000, 25000])}
+            >
+              ₦10,000 - ₦25,000
+            </Button>
+            <Button
+              variant={priceRange[0] === 25000 && priceRange[1] === 50000 ? 'secondary' : 'ghost'}
+              className="w-full justify-start text-sm"
+              onClick={() => setPriceRange([25000, 50000])}
+            >
+              ₦25,000 - ₦50,000
+            </Button>
+            <Button
+              variant={priceRange[0] === 50000 ? 'secondary' : 'ghost'}
+              className="w-full justify-start text-sm"
+              onClick={() => setPriceRange([50000, 100000])}
+            >
+              Above ₦50,000
+            </Button>
+            <Button
+              variant={priceRange[0] === 0 && priceRange[1] === 100000 ? 'secondary' : 'ghost'}
+              className="w-full justify-start text-sm"
+              onClick={() => setPriceRange([0, 100000])}
+            >
+              All Prices
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div>
         <h3 className="font-semibold mb-4">Sort By</h3>
         <div className="space-y-2">
           <Button
@@ -69,6 +132,27 @@ export default function Men() {
             onClick={() => setSortBy('default')}
           >
             Default
+          </Button>
+          <Button
+            variant={sortBy === 'popularity' ? 'secondary' : 'ghost'}
+            className="w-full justify-start"
+            onClick={() => setSortBy('popularity')}
+          >
+            Popularity
+          </Button>
+          <Button
+            variant={sortBy === 'rating' ? 'secondary' : 'ghost'}
+            className="w-full justify-start"
+            onClick={() => setSortBy('rating')}
+          >
+            Highest Rated
+          </Button>
+          <Button
+            variant={sortBy === 'newest' ? 'secondary' : 'ghost'}
+            className="w-full justify-start"
+            onClick={() => setSortBy('newest')}
+          >
+            Newest
           </Button>
           <Button
             variant={sortBy === 'price-asc' ? 'secondary' : 'ghost'}
@@ -142,7 +226,10 @@ export default function Men() {
                 <Button
                   variant="outline"
                   className="mt-4"
-                  onClick={() => setSelectedCategories([])}
+                  onClick={() => {
+                    setSelectedCategories([]);
+                    setPriceRange([0, 100000]);
+                  }}
                 >
                   Clear Filters
                 </Button>

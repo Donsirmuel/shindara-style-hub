@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, Menu, X, Search } from 'lucide-react';
+import { ShoppingBag, Menu, Search, Home, Users, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
 
 interface HeaderProps {
   cartItemCount: number;
@@ -16,10 +17,11 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
   const isActive = (path: string) => location.pathname === path;
 
   const navLinks = [
+    { name: 'Home', path: '/', icon: Home },
     { name: 'Women', path: '/women' },
     { name: 'Men', path: '/men' },
-    { name: 'About', path: '/about' },
-    { name: 'Contact', path: '/contact' },
+    { name: 'About', path: '/about', icon: Users },
+    { name: 'Contact', path: '/contact', icon: Mail },
   ];
 
   return (
@@ -71,26 +73,34 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
             {/* Mobile Menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="hover:bg-accent/20 transition-colors">
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">Toggle menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[300px]">
-                <div className="flex flex-col space-y-4 mt-8">
-                  {navLinks.map((link) => (
-                    <Link
-                      key={link.path}
-                      to={link.path}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`text-lg font-medium transition-colors hover:text-accent ${
-                        isActive(link.path) ? 'text-accent' : 'text-foreground'
-                      }`}
-                    >
-                      {link.name}
-                    </Link>
-                  ))}
-                </div>
+              <SheetContent side="right" className="w-[300px] animate-slide-in-right">
+                <SheetHeader>
+                  <SheetTitle className="text-2xl font-bold">Menu</SheetTitle>
+                </SheetHeader>
+                <Separator className="my-6" />
+                <nav className="flex flex-col space-y-1">
+                  {navLinks.map((link) => {
+                    const Icon = link.icon;
+                    return (
+                      <Link
+                        key={link.path}
+                        to={link.path}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-md text-base font-medium transition-all hover:bg-accent/20 hover:translate-x-1 ${
+                          isActive(link.path) ? 'bg-accent text-accent-foreground' : 'text-foreground'
+                        }`}
+                      >
+                        {Icon && <Icon className="h-5 w-5" />}
+                        <span>{link.name}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
               </SheetContent>
             </Sheet>
           </div>

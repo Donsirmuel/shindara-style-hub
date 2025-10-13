@@ -203,10 +203,90 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Blog Section */}
+      <section className="py-16 md:py-24 bg-secondary/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Fashion Insights</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Stay updated with the latest fashion trends, styling tips, and industry news
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <article className="group bg-card rounded-lg overflow-hidden border hover-lift transition-all">
+              <div className="aspect-video overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80"
+                  alt="Fashion trends"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+              </div>
+              <div className="p-6 space-y-3">
+                <span className="text-xs font-medium text-accent">Fashion Trends</span>
+                <h3 className="text-xl font-semibold group-hover:text-accent transition-colors">
+                  Top 10 Fashion Trends for 2025
+                </h3>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  Discover the hottest fashion trends that will dominate 2025, from bold colors to sustainable fabrics.
+                </p>
+                <a href="#" className="inline-flex items-center text-sm font-medium text-accent hover:underline">
+                  Read more <ArrowRight className="ml-1 h-3 w-3" />
+                </a>
+              </div>
+            </article>
+
+            <article className="group bg-card rounded-lg overflow-hidden border hover-lift transition-all">
+              <div className="aspect-video overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80"
+                  alt="Styling tips"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+              </div>
+              <div className="p-6 space-y-3">
+                <span className="text-xs font-medium text-accent">Styling Tips</span>
+                <h3 className="text-xl font-semibold group-hover:text-accent transition-colors">
+                  How to Style Ankara for Any Occasion
+                </h3>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  Learn expert tips on styling traditional Ankara prints for both casual and formal events.
+                </p>
+                <a href="#" className="inline-flex items-center text-sm font-medium text-accent hover:underline">
+                  Read more <ArrowRight className="ml-1 h-3 w-3" />
+                </a>
+              </div>
+            </article>
+
+            <article className="group bg-card rounded-lg overflow-hidden border hover-lift transition-all">
+              <div className="aspect-video overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"
+                  alt="Shopping guide"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+              </div>
+              <div className="p-6 space-y-3">
+                <span className="text-xs font-medium text-accent">Shopping Guide</span>
+                <h3 className="text-xl font-semibold group-hover:text-accent transition-colors">
+                  Building a Versatile Wardrobe
+                </h3>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  Essential pieces every wardrobe needs for creating countless outfit combinations.
+                </p>
+                <a href="#" className="inline-flex items-center text-sm font-medium text-accent hover:underline">
+                  Read more <ArrowRight className="ml-1 h-3 w-3" />
+                </a>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center space-y-6 p-8 md:p-12 rounded-2xl bg-accent text-accent-foreground">
+          <div className="max-w-3xl mx-auto text-center space-y-6 p-8 md:p-12 rounded-2xl bg-accent text-accent-foreground hover-lift transition-all">
             <h2 className="text-3xl md:text-4xl font-bold">
               Join the Shindara Community
             </h2>
@@ -220,7 +300,7 @@ export default function Home() {
                 className="flex-1 px-4 py-3 rounded-md bg-accent-foreground text-accent focus-ring"
                 aria-label="Email address"
               />
-              <Button size="lg" variant="secondary">
+              <Button size="lg" variant="secondary" className="hover-scale">
                 Subscribe
               </Button>
             </div>

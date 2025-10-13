@@ -177,7 +177,7 @@ export default function Women() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <div className="relative h-[300px] md:h-[400px] overflow-hidden">
+      <div className="relative h-[300px] md:h-[400px] overflow-hidden animate-fade-in">
         <img
           src={heroWomen}
           alt="Women's Fashion Collection"
@@ -185,8 +185,8 @@ export default function Women() {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30 flex items-center">
           <div className="container mx-auto px-4">
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">Women's Fashion</h1>
-            <p className="text-lg md:text-xl text-white/90 max-w-2xl">
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 animate-fade-in">Women's Fashion</h1>
+            <p className="text-lg md:text-xl text-white/90 max-w-2xl animate-fade-in" style={{ animationDelay: '0.1s' }}>
               Explore our stunning collection of women's clothing and accessories
             </p>
           </div>

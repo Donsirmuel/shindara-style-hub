@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import productsData from '@/data/products.json';
 import { Product } from '@/lib/types';
+import { StarRating } from '@/components/StarRating';
 
 interface ProductDetailProps {
   onAddToCart: (product: Product, size: string, color: string, quantity: number) => void;
@@ -112,6 +113,16 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold mb-2">{product.name}</h1>
+              {product.rating && (
+                <div className="flex items-center gap-2 mb-3">
+                  <StarRating rating={product.rating} />
+                  {product.reviewCount && (
+                    <span className="text-sm text-muted-foreground">
+                      ({product.reviewCount} reviews)
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-3xl font-bold">{formatPrice(product.price)}</span>
                 {product.originalPrice && (

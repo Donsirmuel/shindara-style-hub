@@ -8,6 +8,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import productsData from '@/data/products.json';
 import categoriesData from '@/data/categories.json';
 import { Product, Category } from '@/lib/types';
+import heroMen from '@/assets/hero-men.jpg';
 
 export default function Men() {
   const products = (productsData as Product[]).filter((p) => p.gender === 'men');
@@ -174,11 +175,27 @@ export default function Men() {
   );
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="container mx-auto px-4">
-        {/* Header */}
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <div className="relative h-[300px] md:h-[400px] overflow-hidden">
+        <img
+          src={heroMen}
+          alt="Men's Fashion Collection"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30 flex items-center">
+          <div className="container mx-auto px-4">
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">Men's Fashion</h1>
+            <p className="text-lg md:text-xl text-white/90 max-w-2xl">
+              Discover our curated collection of premium men's clothing and accessories
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8">
+        {/* Products Count */}
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Men's Fashion</h1>
           <p className="text-muted-foreground">
             Showing {filteredProducts.length} products
           </p>

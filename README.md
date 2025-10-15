@@ -1,73 +1,72 @@
-# Welcome to your Lovable project
+# Shindara Style Hub
 
-## Project info
+A modern e-commerce platform for Shindara Fashion World - your destination for affordable Nigerian fashion.
 
-**URL**: https://lovable.dev/projects/3ed8ad71-c05c-470f-9f58-84da358914aa
+## About
 
-## How can I edit this code?
+Shindara Style Hub is a contemporary fashion e-commerce store offering premium Nigerian fashion at affordable prices. Shop our curated collection of traditional and modern designs for men and women.
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/3ed8ad71-c05c-470f-9f58-84da358914aa) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
+## Technologies
 
 This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Vite** - Fast build tool and development server
+- **React** - UI framework
+- **TypeScript** - Type-safe JavaScript
+- **Tailwind CSS** - Utility-first CSS framework
+- **shadcn/ui** - High-quality UI components
+- **React Query** - Data fetching and state management
+- **Lucide React** - Beautiful icon library
 
-## How can I deploy this project?
+## Getting Started
 
-Simply open [Lovable](https://lovable.dev/projects/3ed8ad71-c05c-470f-9f58-84da358914aa) and click on Share -> Publish.
+### Prerequisites
 
-## Can I connect a custom domain to my Lovable project?
+- Node.js (v16 or higher)
+- npm or yarn
 
-Yes, you can!
+### Installation
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+1. Clone the repository:
+```sh
+git clone https://github.com/Donsirmuel/shindara-style-hub.git
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+2. Navigate to the project directory:
+```sh
+cd shindara-style-hub
+```
+
+3. Install dependencies:
+```sh
+npm install
+```
+
+4. Start the development server:
+```sh
+npm run dev
+```
+
+The application will be available at `http://localhost:8080`
+
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run build:dev` - Build for development
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+
+## Deployment
+
+Build the project for production:
+
+```sh
+npm run build
+```
+
+The built files will be in the `dist` directory, ready to be deployed to any static hosting service.
+
+## License
+
+All rights reserved - Shindara Fashion World

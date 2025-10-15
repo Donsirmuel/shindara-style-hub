@@ -129,8 +129,10 @@ If manual deletion fails, you can use robocopy to force-delete node_modules:
 
 ```cmd
 # Run in Command Prompt as Administrator
-# This creates an empty temp directory, mirrors it to node_modules (deleting everything), then removes both
-robocopy node_modules null /MIR /R:1 /W:1
+# Create an empty directory, mirror it to node_modules (deleting everything), then clean up
+md empty_temp_dir
+robocopy empty_temp_dir node_modules /MIR /R:1 /W:1
+rmdir /s /q empty_temp_dir
 rmdir /s /q node_modules
 npm install
 ```

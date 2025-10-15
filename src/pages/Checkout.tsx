@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { CartItem, CheckoutFormData } from '@/lib/types';
+import { resolveImageUrl } from '@/utils/imageResolver';
 import { toast } from 'sonner';
 
 interface CheckoutProps {
@@ -209,29 +210,32 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
               <CardContent className="space-y-4">
                 {/* Items */}
                 <div className="space-y-3">
-                  {cartItems.map((item) => (
-                    <div key={`${item.product.id}-${item.size}`} className="flex gap-3">
-                      <div className="relative h-16 w-14 overflow-hidden rounded-md bg-secondary">
-                        <img
-                          src={item.product.images[0]}
-                          alt={item.product.name}
-                          className="h-full w-full object-cover"
-                        />
-                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
-                          {item.quantity}
+                  {cartItems.map((item) => {
+                    const imageSrc = resolveImageUrl(item.product.images?.[0]);
+                    return (
+                      <div key={`${item.product.id}-${item.size}`} className="flex gap-3">
+                        <div className="relative h-16 w-14 overflow-hidden rounded-md bg-secondary">
+                          <img
+                            src={imageSrc}
+                            alt={item.product.name}
+                            className="h-full w-full object-cover"
+                          />
+                          <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
+                            {item.quantity}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium line-clamp-2">{item.product.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.size} • {item.color}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold">
+                          {formatPrice(item.product.price * item.quantity)}
                         </span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium line-clamp-2">{item.product.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.size} • {item.color}
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold">
-                        {formatPrice(item.product.price * item.quantity)}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <Separator />

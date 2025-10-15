@@ -3,6 +3,7 @@ import { Product } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StarRating } from '@/components/StarRating';
+import { resolveImageUrl } from '@/utils/imageResolver';
 
 interface ProductCardProps {
   product: Product;
@@ -21,12 +22,14 @@ export function ProductCard({ product }: ProductCardProps) {
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
 
+  const coverImage = resolveImageUrl(product.images?.[0]);
+
   return (
     <Card className="group overflow-hidden border-border hover:shadow-lg hover-lift transition-all duration-300">
       <Link to={`/product/${product.id}`}>
         <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
           <img
-            src={product.images[0]}
+            src={coverImage}
             alt={product.name}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
             loading="lazy"

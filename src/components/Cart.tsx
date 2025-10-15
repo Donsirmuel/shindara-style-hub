@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { CartItem } from '@/lib/types';
+import { resolveImageUrl } from '@/utils/imageResolver';
 
 interface CartProps {
   open: boolean;
@@ -43,69 +44,72 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
           <>
             <ScrollArea className="flex-1 pr-6">
               <div className="space-y-4">
-                {items.map((item) => (
-                  <div key={`${item.product.id}-${item.size}-${item.color}`} className="flex gap-4">
-                    <div className="relative h-24 w-20 overflow-hidden rounded-md bg-secondary">
-                      <img
-                        src={item.product.images[0]}
-                        alt={item.product.name}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-
-                    <div className="flex flex-1 flex-col">
-                      <div className="flex justify-between">
-                        <div className="flex-1">
-                          <Link
-                            to={`/product/${item.product.id}`}
-                            className="font-semibold text-sm hover:text-accent transition-colors line-clamp-2"
-                            onClick={() => onOpenChange(false)}
-                          >
-                            {item.product.name}
-                          </Link>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Size: {item.size} • {item.color}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0"
-                          onClick={() => onRemoveItem(item.product.id)}
-                        >
-                          <X className="h-4 w-4" />
-                          <span className="sr-only">Remove item</span>
-                        </Button>
+                {items.map((item) => {
+                  const imageSrc = resolveImageUrl(item.product.images?.[0]);
+                  return (
+                    <div key={`${item.product.id}-${item.size}-${item.color}`} className="flex gap-4">
+                      <div className="relative h-24 w-20 overflow-hidden rounded-md bg-secondary">
+                        <img
+                          src={imageSrc}
+                          alt={item.product.name}
+                          className="h-full w-full object-cover"
+                        />
                       </div>
 
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center border rounded-md">
+                      <div className="flex flex-1 flex-col">
+                        <div className="flex justify-between">
+                          <div className="flex-1">
+                            <Link
+                              to={`/product/${item.product.id}`}
+                              className="font-semibold text-sm hover:text-accent transition-colors line-clamp-2"
+                              onClick={() => onOpenChange(false)}
+                            >
+                              {item.product.name}
+                            </Link>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Size: {item.size} • {item.color}
+                            </p>
+                          </div>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
-                            onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1}
+                            className="h-6 w-6 shrink-0"
+                            onClick={() => onRemoveItem(item.product.id)}
                           >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-8 text-center text-sm">{item.quantity}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                          >
-                            <Plus className="h-3 w-3" />
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Remove item</span>
                           </Button>
                         </div>
-                        <span className="font-semibold text-sm">
-                          {formatPrice(item.product.price * item.quantity)}
-                        </span>
+
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center border rounded-md">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
+                              disabled={item.quantity <= 1}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-8 text-center text-sm">{item.quantity}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <span className="font-semibold text-sm">
+                            {formatPrice(item.product.price * item.quantity)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
 

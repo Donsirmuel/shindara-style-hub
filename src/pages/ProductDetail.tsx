@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Minus, Plus, ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import productsData from '@/data/products.json';
 import { Product } from '@/lib/types';
 import { StarRating } from '@/components/StarRating';
+import { resolveImageUrl } from '@/utils/imageResolver';
 
 interface ProductDetailProps {
   onAddToCart: (product: Product, size: string, color: string, quantity: number) => void;
@@ -24,6 +25,13 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [zoomOpen, setZoomOpen] = useState(false);
+
+  const resolvedImages = useMemo<string[]>(() => {
+    if (!product) {
+      return [];
+    }
+    return product.images.map((image) => resolveImageUrl(image));
+  }, [product]);
 
   if (!product) {
     return (
@@ -56,6 +64,8 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
     onAddToCart(product, selectedSize, selectedColor, quantity);
   };
 
+  const currentImage = resolvedImages[selectedImage] ?? '';
+
   return (
     <div className="min-h-screen py-8">
       <div className="container mx-auto px-4">
@@ -71,7 +81,7 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
             {/* Main Image */}
             <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-secondary group">
               <img
-                src={product.images[selectedImage]}
+                src={currentImage}
                 alt={product.name}
                 className="h-full w-full object-cover cursor-zoom-in"
                 onClick={() => setZoomOpen(true)}
@@ -92,9 +102,9 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
             </div>
 
             {/* Thumbnail Images */}
-            {product.images.length > 1 && (
+            {resolvedImages.length > 1 && (
               <div className="flex gap-4">
-                {product.images.map((image, index) => (
+                {resolvedImages.map((image, index) => (
                   <button
                     key={index}
                     onClick={() => setSelectedImage(index)}
@@ -216,7 +226,7 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
       <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
         <DialogContent className="max-w-4xl p-0">
           <img
-            src={product.images[selectedImage]}
+            src={currentImage}
             alt={product.name}
             className="w-full h-auto"
           />

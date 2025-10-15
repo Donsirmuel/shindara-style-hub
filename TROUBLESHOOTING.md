@@ -123,20 +123,34 @@ Error: EPERM: operation not permitted, rmdir 'C:\...\node_modules\...'
    ```
 
 #### Solution 4: Use Robocopy (Windows)
-If manual deletion fails:
+If manual deletion fails, you can use robocopy to force-delete node_modules:
+
+**⚠️ Warning:** This command uses robocopy to mirror an empty directory to node_modules, effectively deleting all its contents. Make sure you're in the correct directory!
+
 ```cmd
 # Run in Command Prompt as Administrator
+# This creates an empty temp directory, mirrors it to node_modules (deleting everything), then removes both
 robocopy node_modules null /MIR /R:1 /W:1
 rmdir /s /q node_modules
 npm install
 ```
 
-#### Solution 5: Disable Windows Defender/Antivirus Temporarily
-Sometimes antivirus software locks files in `node_modules`:
-1. Temporarily disable Windows Defender or your antivirus
-2. Delete `node_modules` and run `npm install`
-3. Re-enable your antivirus
-4. Add the project folder to the antivirus exclusion list
+#### Solution 5: Add Project to Antivirus Exclusions
+Sometimes antivirus software locks files in `node_modules`, preventing npm from modifying them:
+
+**Recommended approach:**
+1. Add the project folder to your antivirus exclusion list:
+   - **Windows Defender:** Settings > Update & Security > Windows Security > Virus & threat protection > Manage settings > Exclusions
+   - Add your project folder (e.g., `C:\Users\user\Documents\Projects\shindara-style-hub`)
+2. Run `npm install` again
+
+**⚠️ Last resort only:** If adding exclusions doesn't work, you can temporarily disable your antivirus:
+1. Temporarily disable Windows Defender or your antivirus (2-3 minutes only)
+2. Quickly delete `node_modules` and run `npm install`
+3. **Immediately re-enable your antivirus** after installation completes
+4. Add the project folder to exclusions to prevent future issues
+
+**Security Note:** Only disable antivirus temporarily and ensure you re-enable it immediately. Never leave your system unprotected.
 
 ## Build Issues
 
@@ -207,10 +221,18 @@ rm -f tsconfig.tsbuildinfo
 If you experience slow downloads or timeouts:
 
 1. **Increase timeout values** - Already configured in `.npmrc`
-2. **Use a mirror registry:**
+2. **Use a mirror registry (regional users):**
+   
+   **Note:** Mirror registries can improve download speeds but should be used with caution. The npmmirror.com registry below is primarily intended for users in China. For other regions, the default npm registry is recommended.
+   
    ```sh
-   # Add to .npmrc
+   # Add to .npmrc (China region only)
    registry=https://registry.npmmirror.com/
+   ```
+   
+   For other regions, stick with the default:
+   ```sh
+   registry=https://registry.npmjs.org/
    ```
 3. **Check your internet connection stability**
 4. **Try during off-peak hours**

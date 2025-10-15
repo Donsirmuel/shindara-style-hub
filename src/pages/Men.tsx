@@ -3,8 +3,10 @@ import { ProductCard } from '@/components/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { SlidersHorizontal } from 'lucide-react';
+import { BackToTop } from '@/components/BackToTop';
 import productsData from '@/data/products.json';
 import categoriesData from '@/data/categories.json';
 import { Product, Category } from '@/lib/types';
@@ -80,11 +82,19 @@ export default function Men() {
       <div>
         <h3 className="font-semibold mb-4">Price Range</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-sm font-medium">
             <span>₦{priceRange[0].toLocaleString()}</span>
             <span>₦{priceRange[1].toLocaleString()}</span>
           </div>
-          <div className="space-y-2">
+          <Slider
+            min={0}
+            max={100000}
+            step={1000}
+            value={priceRange}
+            onValueChange={(value) => setPriceRange(value as [number, number])}
+            className="w-full"
+          />
+          <div className="space-y-2 pt-2">
             <Button
               variant={priceRange[1] === 10000 ? 'secondary' : 'ghost'}
               className="w-full justify-start text-sm"
@@ -112,13 +122,6 @@ export default function Men() {
               onClick={() => setPriceRange([50000, 100000])}
             >
               Above ₦50,000
-            </Button>
-            <Button
-              variant={priceRange[0] === 0 && priceRange[1] === 100000 ? 'secondary' : 'ghost'}
-              className="w-full justify-start text-sm"
-              onClick={() => setPriceRange([0, 100000])}
-            >
-              All Prices
             </Button>
           </div>
         </div>
@@ -177,7 +180,7 @@ export default function Men() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <div className="relative h-[300px] md:h-[400px] overflow-hidden animate-fade-in">
+      <div className="relative h-[300px] md:h-[400px] lg:h-[500px] overflow-hidden animate-fade-in mt-16 md:mt-0">
         <img
           src={heroMen}
           alt="Men's Fashion Collection"
@@ -255,6 +258,7 @@ export default function Men() {
           </div>
         </div>
       </div>
+      <BackToTop />
     </div>
   );
 }

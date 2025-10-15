@@ -23,7 +23,7 @@ This project is built with:
 ### Prerequisites
 
 - Node.js (v16 or higher)
-- npm or yarn
+- npm, yarn, or bun
 
 ### Installation
 
@@ -38,8 +38,20 @@ cd shindara-style-hub
 ```
 
 3. Install dependencies:
+
+**Using npm:**
 ```sh
 npm install
+```
+
+**Using yarn:**
+```sh
+yarn install
+```
+
+**Using bun (fastest):**
+```sh
+bun install
 ```
 
 4. Start the development server:
@@ -48,6 +60,67 @@ npm run dev
 ```
 
 The application will be available at `http://localhost:8080`
+
+### Troubleshooting Installation Errors
+
+For detailed troubleshooting steps, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+
+If you encounter errors during `npm install`, try these solutions:
+
+#### SSL/TLS Cipher Errors
+If you see `ERR_SSL_CIPHER_OPERATION_FAILED` or similar SSL errors:
+
+1. **Clear npm cache:**
+   ```sh
+   npm cache clean --force
+   ```
+
+2. **Try with strict-ssl disabled (Windows users):**
+   
+   Edit the `.npmrc` file in the project root and uncomment this line:
+   ```
+   strict-ssl=false
+   ```
+   
+   Then run:
+   ```sh
+   npm install
+   ```
+
+3. **Use alternative package managers:**
+   - **Bun** (recommended for Windows): `bun install`
+   - **Yarn**: `yarn install`
+
+#### Permission Errors (EPERM) on Windows
+If you see `EPERM: operation not permitted` errors:
+
+1. **Close all applications** that might be accessing the `node_modules` folder (VS Code, terminal windows, etc.)
+
+2. **Run as Administrator:**
+   - Right-click on your terminal (Command Prompt or PowerShell)
+   - Select "Run as Administrator"
+   - Navigate to the project directory
+   - Run `npm install`
+
+3. **Delete node_modules and try again:**
+   ```sh
+   # Close all editors and terminals first
+   rmdir /s /q node_modules
+   npm cache clean --force
+   npm install
+   ```
+
+4. **Use alternative package manager:**
+   ```sh
+   # Using bun (often works better on Windows)
+   bun install
+   ```
+
+#### General Tips
+- Ensure you have a stable internet connection
+- Try using a VPN if you're behind a restrictive firewall
+- Update npm to the latest version: `npm install -g npm@latest`
+- Restart your computer and try again
 
 ## Available Scripts
 

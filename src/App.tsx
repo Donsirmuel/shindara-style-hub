@@ -24,12 +24,14 @@ const App = () => {
   const [cartOpen, setCartOpen] = useState(false);
   const { items, addItem, updateQuantity, removeItem, clearCart, totalItems } = useCart();
 
+  const basePath = (import.meta.env.BASE_URL?.replace(/\/$/, "") || "") || "/";
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+  <BrowserRouter basename={basePath === "" ? "/" : basePath}>
           <div className="flex flex-col min-h-screen">
             <Header cartItemCount={totalItems} onCartOpen={() => setCartOpen(true)} />
             <main className="flex-1">

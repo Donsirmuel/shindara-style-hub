@@ -60,9 +60,9 @@ export default function Women() {
   }, [products, selectedCategories, sortBy, priceRange]);
 
   const FilterContent = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 rounded-xl border bg-card p-5">
       <div>
-        <h3 className="font-semibold mb-4">Categories</h3>
+        <h3 className="mb-4 text-base font-semibold">Categories</h3>
         <div className="space-y-3">
           {categories.map((category) => (
             <div key={category.id} className="flex items-center space-x-2">
@@ -80,7 +80,7 @@ export default function Women() {
       </div>
 
       <div>
-        <h3 className="font-semibold mb-4">Price Range</h3>
+        <h3 className="mb-4 text-base font-semibold">Price Range</h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between text-sm font-medium">
             <span>₦{priceRange[0].toLocaleString()}</span>
@@ -128,7 +128,7 @@ export default function Women() {
       </div>
 
       <div>
-        <h3 className="font-semibold mb-4">Sort By</h3>
+        <h3 className="mb-4 text-base font-semibold">Sort By</h3>
         <div className="space-y-2">
           <Button
             variant={sortBy === 'default' ? 'secondary' : 'ghost'}
@@ -196,12 +196,13 @@ export default function Women() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 md:py-10">
         {/* Products Count */}
-        <div className="mb-8">
-          <p className="text-muted-foreground">
+        <div className="mb-8 flex items-center justify-between rounded-lg border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">
             Showing {filteredProducts.length} products
           </p>
+          <span className="hidden text-xs text-muted-foreground md:inline">Refine with filters</span>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
@@ -216,7 +217,7 @@ export default function Women() {
           <div className="lg:hidden">
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full justify-start">
                   <SlidersHorizontal className="mr-2 h-4 w-4" />
                   Filters & Sort
                 </Button>
@@ -235,13 +236,13 @@ export default function Women() {
           {/* Products Grid */}
           <div className="flex-1">
             {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-6">
                 {filteredProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
             ) : (
-              <div className="text-center py-16">
+              <div className="rounded-xl border bg-card py-16 text-center">
                 <p className="text-muted-foreground">No products found matching your filters.</p>
                 <Button
                   variant="outline"

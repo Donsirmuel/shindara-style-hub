@@ -35,18 +35,24 @@ export function useCart() {
     });
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: string, size: string, color: string, quantity: number) => {
     if (quantity < 1) return;
 
     setItems((prev) =>
       prev.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
+        item.product.id === productId && item.size === size && item.color === color
+          ? { ...item, quantity }
+          : item
       )
     );
   };
 
-  const removeItem = (productId: string) => {
-    setItems((prev) => prev.filter((item) => item.product.id !== productId));
+  const removeItem = (productId: string, size: string, color: string) => {
+    setItems((prev) =>
+      prev.filter(
+        (item) => !(item.product.id === productId && item.size === size && item.color === color)
+      )
+    );
     toast.info('Removed from cart');
   };
 

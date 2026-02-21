@@ -10,6 +10,7 @@ import productsData from '@/data/products.json';
 import { Product } from '@/lib/types';
 import { StarRating } from '@/components/StarRating';
 import { resolveImageUrl } from '@/utils/imageResolver';
+import { toast } from 'sonner';
 
 interface ProductDetailProps {
   onAddToCart: (product: Product, size: string, color: string, quantity: number) => void;
@@ -58,7 +59,7 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
 
   const handleAddToCart = () => {
     if (!selectedSize || !selectedColor) {
-      alert('Please select size and color');
+      toast.error('Please select size and color');
       return;
     }
     onAddToCart(product, selectedSize, selectedColor, quantity);

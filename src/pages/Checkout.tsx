@@ -86,20 +86,20 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
   }
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
-        <h1 className="text-3xl font-bold mb-8">Checkout</h1>
+    <div className="min-h-screen py-6 md:py-8">
+      <div className="container mx-auto max-w-6xl px-4">
+        <h1 className="mb-6 text-2xl font-bold md:mb-8 md:text-3xl">Checkout</h1>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           {/* Checkout Form */}
           <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
               {/* Contact Information */}
               <Card>
                 <CardHeader>
                   <CardTitle>Contact Information</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 pt-0 md:pt-1">
                   <div>
                     <Label htmlFor="email">Email *</Label>
                     <Input
@@ -119,8 +119,8 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
                 <CardHeader>
                   <CardTitle>Shipping Information</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
+                <CardContent className="space-y-4 pt-0 md:pt-1">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <Label htmlFor="firstName">First Name *</Label>
                       <Input
@@ -164,7 +164,7 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
                     />
                   </div>
 
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid gap-4 md:grid-cols-3">
                     <div>
                       <Label htmlFor="city">City *</Label>
                       <Input
@@ -203,7 +203,7 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-24">
+            <Card className="lg:sticky lg:top-24">
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
@@ -213,7 +213,7 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
                   {cartItems.map((item) => {
                     const imageSrc = resolveImageUrl(item.product.images?.[0]);
                     return (
-                      <div key={`${item.product.id}-${item.size}`} className="flex gap-3">
+                      <div key={`${item.product.id}-${item.size}-${item.color}`} className="flex gap-3">
                         <div className="relative h-16 w-14 overflow-hidden rounded-md bg-secondary">
                           <img
                             src={imageSrc}

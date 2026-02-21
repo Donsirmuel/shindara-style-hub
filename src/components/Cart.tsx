@@ -11,8 +11,8 @@ interface CartProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: CartItem[];
-  onUpdateQuantity: (productId: string, quantity: number) => void;
-  onRemoveItem: (productId: string) => void;
+  onUpdateQuantity: (productId: string, size: string, color: string, quantity: number) => void;
+  onRemoveItem: (productId: string, size: string, color: string) => void;
 }
 
 export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem }: CartProps) {
@@ -28,8 +28,8 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col pr-0 sm:max-w-lg">
-        <SheetHeader className="px-1">
+      <SheetContent className="flex w-full flex-col px-4 sm:max-w-lg sm:px-6">
+        <SheetHeader className="px-0">
           <SheetTitle>Shopping Cart ({items.length})</SheetTitle>
         </SheetHeader>
 
@@ -42,13 +42,13 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
           </div>
         ) : (
           <>
-            <ScrollArea className="flex-1 pr-6">
-              <div className="space-y-4">
+            <ScrollArea className="flex-1 pr-1">
+              <div className="space-y-4 py-2">
                 {items.map((item) => {
                   const imageSrc = resolveImageUrl(item.product.images?.[0]);
                   return (
-                    <div key={`${item.product.id}-${item.size}-${item.color}`} className="flex gap-4">
-                      <div className="relative h-24 w-20 overflow-hidden rounded-md bg-secondary">
+                    <div key={`${item.product.id}-${item.size}-${item.color}`} className="flex gap-3 sm:gap-4">
+                      <div className="relative h-20 w-16 overflow-hidden rounded-md bg-secondary sm:h-24 sm:w-20">
                         <img
                           src={imageSrc}
                           alt={item.product.name}
@@ -74,20 +74,20 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 shrink-0"
-                            onClick={() => onRemoveItem(item.product.id)}
+                            onClick={() => onRemoveItem(item.product.id, item.size, item.color)}
                           >
                             <X className="h-4 w-4" />
                             <span className="sr-only">Remove item</span>
                           </Button>
                         </div>
 
-                        <div className="flex items-center justify-between mt-2">
+                        <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center border rounded-md">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7"
-                              onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
+                              className="h-8 w-8"
+                              onClick={() => onUpdateQuantity(item.product.id, item.size, item.color, item.quantity - 1)}
                               disabled={item.quantity <= 1}
                             >
                               <Minus className="h-3 w-3" />
@@ -96,8 +96,8 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7"
-                              onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
+                              className="h-8 w-8"
+                              onClick={() => onUpdateQuantity(item.product.id, item.size, item.color, item.quantity + 1)}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
@@ -113,7 +113,7 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
               </div>
             </ScrollArea>
 
-            <div className="space-y-4 pr-6">
+            <div className="space-y-4 border-t bg-card py-4">
               <Separator />
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">

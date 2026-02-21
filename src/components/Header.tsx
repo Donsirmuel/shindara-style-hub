@@ -13,6 +13,7 @@ interface HeaderProps {
 export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const cartLabel = cartItemCount > 99 ? '99+' : cartItemCount;
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -25,22 +26,23 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <h1 className="text-xl font-bold tracking-tight">SHINDARA</h1>
+    <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+      <div className="container mx-auto px-3 sm:px-4">
+        <div className="flex h-14 items-center justify-between md:h-16">
+          <Link to="/" className="flex items-center">
+            <span className="text-base font-bold tracking-[0.18em] text-foreground md:text-xl md:tracking-[0.2em]">SHINDARA</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden md:flex items-center space-x-6">
             {navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
-                className={`text-sm font-medium transition-colors hover:text-accent ${
-                  isActive(link.path) ? 'text-accent' : 'text-foreground'
+                className={`border-b-2 pb-1 text-sm font-medium transition-colors ${
+                  isActive(link.path)
+                    ? 'border-accent text-accent'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {link.name}
@@ -49,8 +51,8 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" className="hidden md:flex">
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <Button variant="ghost" size="icon" className="hidden text-muted-foreground hover:text-foreground md:flex">
               <Search className="h-5 w-5" />
               <span className="sr-only">Search</span>
             </Button>
@@ -59,12 +61,12 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
               variant="ghost"
               size="icon"
               onClick={onCartOpen}
-              className="relative"
+              className="relative text-muted-foreground hover:text-foreground"
             >
-              <ShoppingBag className="h-5 w-5" />
+              <ShoppingBag className="h-[18px] w-[18px] md:h-5 md:w-5" />
               {cartItemCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
-                  {cartItemCount}
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-accent-foreground">
+                  {cartLabel}
                 </span>
               )}
               <span className="sr-only">Shopping cart</span>
@@ -73,12 +75,12 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
             {/* Mobile Menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon" className="hover:bg-accent/20 transition-colors">
-                  <Menu className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Menu className="h-[18px] w-[18px]" />
                   <span className="sr-only">Toggle menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] animate-slide-in-right">
+              <SheetContent side="right" className="w-[300px]">
                 <SheetHeader>
                   <SheetTitle className="text-2xl font-bold">Menu</SheetTitle>
                 </SheetHeader>

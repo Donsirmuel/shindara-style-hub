@@ -25,7 +25,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const coverImage = resolveImageUrl(product.images?.[0]);
 
   return (
-    <Card className="group overflow-hidden border-border hover:shadow-lg hover-lift transition-all duration-300">
+    <Card className="group overflow-hidden rounded-xl border-border bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
       <Link to={`/product/${product.id}`}>
         <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
           <img
@@ -54,17 +54,17 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </Link>
 
-      <CardContent className="p-4">
+      <CardContent className="space-y-1.5 p-3 sm:space-y-2 sm:p-4">
         <Link to={`/product/${product.id}`}>
-          <h3 className="font-semibold text-base mb-2 line-clamp-2 group-hover:text-accent transition-colors">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-accent sm:text-base">
             {product.name}
           </h3>
         </Link>
 
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-lg">{formatPrice(product.price)}</span>
+        <div className="flex items-end gap-2">
+          <span className="text-base font-bold leading-none sm:text-lg">{formatPrice(product.price)}</span>
           {product.originalPrice && (
-            <span className="text-sm text-muted-foreground line-through">
+            <span className="text-xs leading-none text-muted-foreground line-through sm:text-sm">
               {formatPrice(product.originalPrice)}
             </span>
           )}
@@ -81,20 +81,11 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
 
-        <div className="flex items-center gap-2 mt-2">
-          {product.colors.slice(0, 3).map((color, index) => (
-            <div
-              key={index}
-              className="w-4 h-4 rounded-full border border-border"
-              style={{
-                backgroundColor: color.toLowerCase() === 'multi-color' ? 'transparent' : color.toLowerCase(),
-                background:
-                  color.toLowerCase() === 'multi-color'
-                    ? 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)'
-                    : undefined,
-              }}
-              title={color}
-            />
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:mt-2 sm:gap-2">
+          {product.colors.slice(0, 3).map((color) => (
+            <Badge key={color} variant="outline" className="rounded-full px-1.5 py-0 text-[10px] font-medium text-muted-foreground sm:px-2">
+              {color}
+            </Badge>
           ))}
           {product.colors.length > 3 && (
             <span className="text-xs text-muted-foreground">+{product.colors.length - 3}</span>

@@ -54,15 +54,15 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </Link>
 
-      <CardContent className="space-y-1.5 p-3 sm:space-y-2 sm:p-4">
+      <CardContent className="space-y-1 p-2.5 sm:space-y-2 sm:p-4">
         <Link to={`/product/${product.id}`}>
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-accent sm:text-base">
+          <h3 className="line-clamp-2 text-xs font-semibold leading-snug transition-colors group-hover:text-accent sm:text-base">
             {product.name}
           </h3>
         </Link>
 
         <div className="flex items-end gap-2">
-          <span className="text-base font-bold leading-none sm:text-lg">{formatPrice(product.price)}</span>
+          <span className="text-sm font-bold leading-none sm:text-lg">{formatPrice(product.price)}</span>
           {product.originalPrice && (
             <span className="text-xs leading-none text-muted-foreground line-through sm:text-sm">
               {formatPrice(product.originalPrice)}
@@ -71,7 +71,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
 
         {product.rating && (
-          <div className="mt-2">
+          <div className="mt-1 hidden sm:block sm:mt-2">
             <StarRating 
               rating={product.rating} 
               showNumber 
@@ -81,7 +81,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
 
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:mt-2 sm:gap-2">
+        <div className="mt-1.5 hidden flex-wrap items-center gap-1.5 sm:mt-2 sm:flex sm:gap-2">
           {product.colors.slice(0, 3).map((color) => (
             <Badge key={color} variant="outline" className="rounded-full px-1.5 py-0 text-[10px] font-medium text-muted-foreground sm:px-2">
               {color}

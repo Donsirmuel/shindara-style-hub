@@ -9,40 +9,40 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Shindara Fashion World Design System */
-    --background: 0 0% 96%;
-    --foreground: 0 0% 10%;
+    --background: 36 34% 96%;
+    --foreground: 24 10% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card-foreground: 24 10% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
+    --popover-foreground: 24 10% 10%;
 
-    --primary: 0 0% 10%;
+    --primary: 24 10% 10%;
     --primary-foreground: 0 0% 98%;
 
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 10%;
+    --secondary: 34 30% 93%;
+    --secondary-foreground: 24 10% 10%;
 
-    --muted: 0 0% 42%;
-    --muted-foreground: 0 0% 42%;
+    --muted: 32 12% 42%;
+    --muted-foreground: 32 12% 42%;
 
-    --accent: 30 38% 58%;
+    --accent: 30 33% 45%;
     --accent-foreground: 0 0% 98%;
-    --accent-hover: 30 45% 65%;
+    --accent-hover: 30 36% 50%;
 
     --destructive: 354 70% 54%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 89%;
-    --input: 0 0% 89%;
-    --ring: 30 38% 58%;
+    --border: 32 18% 84%;
+    --input: 32 18% 84%;
+    --ring: 30 33% 45%;
 
     --radius: 0.5rem;
 
     /* Typography system */
-    --font-heading: 'Poppins', system-ui, -apple-system, sans-serif;
-    --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-heading: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-body: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -75,16 +75,16 @@ All colors MUST be HSL.
     --muted: 0 0% 58%;
     --muted-foreground: 0 0% 65%;
 
-    --accent: 30 38% 58%;
+    --accent: 30 33% 45%;
     --accent-foreground: 0 0% 10%;
-    --accent-hover: 30 45% 65%;
+    --accent-hover: 30 36% 50%;
 
     --destructive: 354 70% 54%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 0 0% 20%;
     --input: 0 0% 20%;
-    --ring: 30 38% 58%;
+    --ring: 30 33% 45%;
   }
 }
 
@@ -95,6 +95,8 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground font-body antialiased;
+    background-image:
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(34 28% 94%) 100%);
   }
 
   h1, h2, h3, h4, h5, h6 {

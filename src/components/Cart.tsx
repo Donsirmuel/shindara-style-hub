@@ -67,7 +67,7 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
                               {item.product.name}
                             </Link>
                             <p className="text-xs text-muted-foreground mt-1">
-                              Size: {item.size} • {item.color}
+                              Size: {item.size} - {item.color}
                             </p>
                           </div>
                           <Button

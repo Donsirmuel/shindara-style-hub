@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { randomInt } from "node:crypto";
 import { z } from "zod";
-import { eq, inArray, sql } from "drizzle-orm";
-import { db } from "../db/client.js";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { db, supportsTransactions, type Db } from "../db/client.js";
 import { orders, orderItems, products, variants, priceTiers } from "../db/schema.js";
 import { readSession } from "../auth/session.js";
 import { sendOrderEmail } from "../notify/email.js";
@@ -76,6 +76,60 @@ function tierPrice(qty: number, base: number, tiers: Array<{ minQty: number; pri
   return best;
 }
 
+interface OrderLine {
+  productId: string;
+  variantId: string;
+  qty: number;
+  unitPrice: number;
+}
+
+class StockRaceError extends Error {
+  productId: string;
+  constructor(productId: string) {
+    super("stock changed during checkout");
+    this.productId = productId;
+  }
+}
+
+/**
+ * Order + items + conditional stock decrements. Runs inside a real
+ * transaction on Postgres (atomic); sequentially on PGlite where the
+ * pre-validation + `stock >= qty` guard still prevents negative stock.
+ */
+async function persistOrder(
+  exec: Db,
+  args: {
+    orderId: string;
+    customerId: string | null;
+    fulfillment: "pickup" | "delivery";
+    subtotal: number;
+    shipping: number;
+    contactJson: string;
+    lines: OrderLine[];
+  },
+) {
+  await exec.insert(orders).values({
+    id: args.orderId,
+    customerId: args.customerId,
+    status: "pending",
+    fulfillment: args.fulfillment,
+    subtotal: args.subtotal,
+    total: args.subtotal + args.shipping,
+    contactJson: args.contactJson,
+  });
+  await exec.insert(orderItems).values(
+    args.lines.map((l) => ({ orderId: args.orderId, variantId: l.variantId, productId: l.productId, qty: l.qty, unitPrice: l.unitPrice })),
+  );
+  for (const l of args.lines) {
+    const updated = await exec
+      .update(variants)
+      .set({ stock: sql`${variants.stock} - ${l.qty}` })
+      .where(and(eq(variants.id, l.variantId), sql`${variants.stock} >= ${l.qty}`))
+      .returning({ id: variants.id });
+    if (!updated.length) throw new StockRaceError(l.productId);
+  }
+}
+
 export async function orderRoutes(app: FastifyInstance) {
   app.post("/api/orders", async (req, reply) => {
     const body = createOrderBody.safeParse(req.body);
@@ -97,7 +151,7 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     // Validate everything before writing anything.
-    const lines: Array<{ productId: string; variantId: string; qty: number; unitPrice: number }> = [];
+    const lines: OrderLine[] = [];
     for (const item of body.data.items) {
       const prod = prodById.get(item.productId);
       if (!prod) return reply.code(400).send({ error: "unknown_product", productId: item.productId });
@@ -114,9 +168,6 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
-    // NOTE: PGlite/drizzle has no interactive transactions, so stock decrements
-    // run sequentially. Fine for boutique-scale concurrency; a real Postgres
-    // move should wrap this block in db.transaction().
     const subtotal = lines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
     // Pickup is always free; delivery is free above the threshold.
     const shipping =
@@ -126,23 +177,29 @@ export async function orderRoutes(app: FastifyInstance) {
           ? 0
           : Number(process.env.SHIPPING_FEE ?? 2000);
     const orderId = await newOrderId();
-    await db.insert(orders).values({
-      id: orderId,
+    const persistArgs = {
+      orderId,
       customerId: session?.sub ?? null,
-      status: "pending",
       fulfillment: body.data.fulfillment,
       subtotal,
-      total: subtotal + shipping,
+      shipping,
       contactJson: JSON.stringify({ ...body.data.contact, note: body.data.note }),
-    });
-    await db.insert(orderItems).values(
-      lines.map((l) => ({ orderId, variantId: l.variantId, productId: l.productId, qty: l.qty, unitPrice: l.unitPrice })),
-    );
-    for (const l of lines) {
-      await db
-        .update(variants)
-        .set({ stock: sql`${variants.stock} - ${l.qty}` })
-        .where(eq(variants.id, l.variantId));
+      lines,
+    };
+    try {
+      if (supportsTransactions) {
+        // Atomic on real Postgres: concurrent checkouts can't oversell.
+        await db.transaction(async (tx) => {
+          await persistOrder(tx as unknown as Db, persistArgs);
+        });
+      } else {
+        await persistOrder(db, persistArgs);
+      }
+    } catch (e) {
+      if (e instanceof StockRaceError) {
+        return reply.code(409).send({ error: "insufficient_stock", productId: e.productId });
+      }
+      throw e;
     }
 
     // Confirmation email via the vendor's own SMTP (skipped if unconfigured).

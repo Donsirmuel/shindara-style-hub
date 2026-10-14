@@ -94,6 +94,6 @@ export function dataDir(): string {
   return dir;
 }
 
-export function useRealPostgres(): boolean {
+export function shouldUseRealPostgres(): boolean {
   return !!process.env.DATABASE_URL;
 }

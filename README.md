@@ -64,7 +64,21 @@ Gmail: enable 2-Step Verification → create an App Password → paste it as `SM
 2. Ref shows big on screen + email receipt + `/track` page (ref + phone, no account needed).
 3. Transfer-first customers tap "I've sent the transfer" → `paid_pending`; vendor confirms money → `paid`.
 4. Counter flow: search ref in Admin → Confirm → Ready (packed) → Completed (collected/delivered).
-5. Past ~50 orders/day: set `DATABASE_URL` for real Postgres (same schema, just restart).
+5. Past ~50 orders/day: switch to real Postgres (below) — stock decrements become fully transactional.
+
+### Scaling to real Postgres (same VPS, one env var)
+
+The app starts on embedded PGlite (zero ops). When concurrent shoppers + staff arrive:
+
+```sh
+# in .env:
+PG_PASSWORD=a-long-random-password
+DATABASE_URL=postgres://shindara:a-long-random-password@db:5432/shindara
+docker compose --profile pg up --build -d
+npm run db:seed   # run once against the new DB to import catalog + admin
+```
+
+Same Drizzle schema and SQL either way; `supportsTransactions` flips order placement into a real transaction automatically. Moving to managed Postgres later = same `DATABASE_URL`, no code changes.
 
 ## Scripts
 

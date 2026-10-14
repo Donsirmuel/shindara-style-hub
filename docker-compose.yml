@@ -7,11 +7,31 @@ services:
     environment:
       DATA_DIR: /app/data/pgdata
       UPLOADS_DIR: /app/uploads
+      # Set DATABASE_URL in .env only when running with --profile pg.
+      DATABASE_URL: ${DATABASE_URL:-}
     volumes:
       - pgdata:/app/data
       - uploads:/app/uploads
+    restart: unless-stopped
+    # No depends_on on db on purpose (max compose compatibility):
+    # restart recovers the app if Postgres isn't up yet on first boot.
+
+  # Real Postgres for 50+ orders/day. OFF by default — start with:
+  #   docker compose --profile pg up --build -d
+  # with DATABASE_URL=postgres://shindara:<password>@db:5432/shindara in .env.
+  # Same schema, same code; stock decrements become fully transactional.
+  db:
+    image: postgres:16-alpine
+    profiles: ["pg"]
+    environment:
+      POSTGRES_USER: ${PG_USER:-shindara}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-change-me-too}
+      POSTGRES_DB: ${PG_DB:-shindara}
+    volumes:
+      - pgdata-real:/var/lib/postgresql/data
     restart: unless-stopped
 
 volumes:
   pgdata:
   uploads:
+  pgdata-real:

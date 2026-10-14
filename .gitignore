@@ -9,11 +9,17 @@ lerna-debug.log*
 
 node_modules
 dist
+server/dist-server
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+data/
+uploads/
+*.tsbuildinfo
 
-# Lock files (we use bun.lockb)
-package-lock.json
+# Lock files (npm is the template's package manager)
 yarn.lock
 
 # Editor directories and files

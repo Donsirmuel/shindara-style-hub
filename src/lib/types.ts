@@ -1,3 +1,16 @@
+export interface PriceTier {
+  minQty: number;
+  price: number;
+}
+
+export interface ProductVariant {
+  id: string;
+  size: string;
+  color: string;
+  sku: string;
+  stock: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -17,6 +30,11 @@ export interface Product {
   hotDeal?: boolean;
   rating?: number;
   reviewCount?: number;
+  /** Bulk tiers from the API (min quantity → unit price). Absent in static demo. */
+  tiers?: PriceTier[];
+  /** Stock rollups from the API (sum / lowest variant). Absent in static demo. */
+  stockTotal?: number;
+  minStock?: number;
 }
 
 export interface CartItem {

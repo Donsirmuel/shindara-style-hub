@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { CartItem } from '@/lib/types';
+import { formatPrice } from '@/lib/format';
 import { resolveImageUrl } from '@/utils/imageResolver';
 
 interface CartProps {
@@ -16,14 +17,6 @@ interface CartProps {
 }
 
 export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem }: CartProps) {
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
-
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
   return (

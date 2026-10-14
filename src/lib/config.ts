@@ -1,9 +1,12 @@
 /**
- * Application configuration
- * Toggle between mock data and real API
+ * Application configuration (Vite-safe: uses import.meta.env).
+ * Frontend reads the embedded API; falls back to local JSON for static demos.
  */
+import { site } from "@/site.config";
+
 export const config = {
-  useMocks: true, // Set to false when connecting to real API
-  paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || '',
-  apiBaseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  useMocks: !import.meta.env.VITE_API_URL,
+  apiBaseUrl: (import.meta.env.VITE_API_URL as string | undefined) ?? "/api",
+  brand: site.brand,
+  currency: site.currency,
 } as const;

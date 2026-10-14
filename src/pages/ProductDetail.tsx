@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { StarRating } from '@/components/StarRating';
-import productsData from '@/data/products.json';
+import { useProductDetail } from '@/hooks/useProducts';
+import { formatPrice, tierPriceFor } from '@/lib/format';
+import { site } from '@/site.config';
 import { Product } from '@/lib/types';
 import { resolveImageUrl } from '@/utils/imageResolver';
 import { toast } from 'sonner';
@@ -16,17 +18,13 @@ interface ProductDetailProps {
   onAddToCart: (product: Product, size: string, color: string, quantity: number) => void;
 }
 
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(price);
-
 export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const product = (productsData as Product[]).find((item) => item.id === id);
+  const { data, isLoading, isError } = useProductDetail(id);
+  const product = data?.product;
+  const apiVariants = useMemo(() => data?.variants ?? [], [data]);
+  const tiers = useMemo(() => data?.tiers ?? [], [data]);
 
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
@@ -41,7 +39,35 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
     return product.images.map((image) => resolveImageUrl(image));
   }, [product]);
 
-  if (!product) {
+  // Prefer live variant sizes/colors from the API; fall back to product fields (static demo).
+  const sizes = useMemo(
+    () => (apiVariants.length ? [...new Set(apiVariants.map((v) => v.size))] : (product?.sizes ?? [])),
+    [apiVariants, product],
+  );
+  const colors = useMemo(
+    () => (apiVariants.length ? [...new Set(apiVariants.map((v) => v.color))] : (product?.colors ?? [])),
+    [apiVariants, product],
+  );
+  const selectedVariant = apiVariants.find((v) => v.size === selectedSize && v.color === selectedColor);
+  const selectedStock = selectedVariant ? selectedVariant.stock : null;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background py-8 sm:py-10">
+        <div className="mx-auto grid max-w-6xl animate-pulse gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:gap-12 lg:px-8">
+          <div className="aspect-[4/5] rounded-2xl bg-secondary" />
+          <div className="space-y-4 rounded-2xl border border-border/80 bg-card p-6 sm:p-8">
+            <div className="h-8 w-2/3 rounded bg-secondary" />
+            <div className="h-6 w-1/3 rounded bg-secondary" />
+            <div className="h-24 rounded bg-secondary" />
+            <div className="h-11 rounded-full bg-secondary" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !product) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="rounded-2xl border border-border/80 bg-card px-8 py-10 text-center">
@@ -58,10 +84,21 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
     : 0;
 
   const currentImage = resolvedImages[selectedImage] ?? '';
+  const unitPrice = tierPriceFor(quantity, product.price, tiers);
+  const bulkActive = unitPrice < product.price;
+  const nextTier = [...tiers].sort((a, b) => a.minQty - b.minQty).find((t) => t.minQty > quantity) ?? null;
 
   const handleAddToCart = () => {
     if (!selectedSize || !selectedColor) {
       toast.error('Choose size and color before adding to cart.');
+      return;
+    }
+    if (selectedStock != null && selectedStock <= 0) {
+      toast.error('That size/color is out of stock.');
+      return;
+    }
+    if (selectedStock != null && quantity > selectedStock) {
+      toast.error(`Only ${selectedStock} left in ${selectedSize} / ${selectedColor}.`);
       return;
     }
     onAddToCart(product, selectedSize, selectedColor, quantity);
@@ -132,16 +169,56 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
                 </div>
               ) : null}
               <Badge variant={product.inStock ? 'outline' : 'secondary'}>
-                {product.inStock ? 'In Stock' : 'Out of Stock'}
+                {selectedStock != null
+                  ? selectedStock > 0
+                    ? `${selectedStock} left in ${selectedSize} / ${selectedColor}`
+                    : 'Out of stock in this variant'
+                  : product.inStock ? 'In Stock' : 'Out of Stock'}
               </Badge>
             </div>
 
             <div className="mt-5 flex items-end gap-3 border-b border-border/80 pb-5">
-              <p className="text-3xl font-bold">{formatPrice(product.price)}</p>
-              {product.originalPrice ? (
+              <p className="text-3xl font-bold">{formatPrice(bulkActive ? unitPrice : product.price)}</p>
+              {bulkActive ? (
+                <p className="text-lg text-muted-foreground line-through">{formatPrice(product.price)}</p>
+              ) : product.originalPrice ? (
                 <p className="text-lg text-muted-foreground line-through">{formatPrice(product.originalPrice)}</p>
               ) : null}
+              {bulkActive && (
+                <Badge className="bg-accent text-accent-foreground">Bulk price applied</Badge>
+              )}
             </div>
+
+            {site.features.bulk && tiers.length > 0 && (
+              <div className="mt-5 rounded-xl border border-border/80 bg-secondary/40 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  {site.bulk.tiersLabel}
+                </p>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>1 – {tiers[0].minQty - 1} pcs</span>
+                    <span className="font-semibold">{formatPrice(product.price)} each</span>
+                  </div>
+                  {[...tiers].sort((a, b) => a.minQty - b.minQty).map((tier) => {
+                    const active = quantity >= tier.minQty;
+                    return (
+                      <div key={tier.minQty} className={`flex items-center justify-between text-sm ${active ? 'font-semibold text-foreground' : 'text-foreground/75'}`}>
+                        <span>
+                          {tier.minQty}+ pcs
+                          {active && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-[11px] text-accent-foreground">yours</span>}
+                        </span>
+                        <span className="font-semibold">{formatPrice(tier.price)} each</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {nextTier && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Add {nextTier.minQty - quantity} more to unlock {formatPrice(nextTier.price)} each.
+                  </p>
+                )}
+              </div>
+            )}
 
             <p className="mt-5 text-sm leading-7 text-foreground/80">{product.description}</p>
 
@@ -149,7 +226,7 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
               <div>
                 <Label className="mb-3 block text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Size</Label>
                 <RadioGroup value={selectedSize} onValueChange={setSelectedSize} className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
+                  {sizes.map((size) => (
                     <div key={size}>
                       <RadioGroupItem value={size} id={`size-${size}`} className="peer sr-only" />
                       <Label
@@ -166,7 +243,7 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
               <div>
                 <Label className="mb-3 block text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Color</Label>
                 <RadioGroup value={selectedColor} onValueChange={setSelectedColor} className="flex flex-wrap gap-2">
-                  {product.colors.map((color) => (
+                  {colors.map((color) => (
                     <div key={color}>
                       <RadioGroupItem value={color} id={`color-${color}`} className="peer sr-only" />
                       <Label
@@ -187,14 +264,14 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
                     <Minus className="h-4 w-4" />
                   </Button>
                   <span className="w-12 text-center text-sm font-semibold">{quantity}</span>
-                  <Button variant="ghost" size="icon" onClick={() => setQuantity((value) => value + 1)}>
+                  <Button variant="ghost" size="icon" onClick={() => setQuantity((value) => value + 1)} disabled={selectedStock != null && quantity >= selectedStock}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              <Button size="lg" className="h-11 w-full rounded-full" onClick={handleAddToCart} disabled={!product.inStock}>
-                {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+              <Button size="lg" className="h-11 w-full rounded-full" onClick={handleAddToCart} disabled={!product.inStock || selectedStock === 0}>
+                {!product.inStock || selectedStock === 0 ? 'Out of Stock' : bulkActive ? `Add to Cart — ${formatPrice(unitPrice * quantity)} total` : 'Add to Cart'}
               </Button>
             </div>
           </section>

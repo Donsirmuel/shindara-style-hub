@@ -11,8 +11,12 @@ import { useCart } from './hooks/useCart';
 import Home from "./pages/Home";
 import Women from "./pages/Women";
 import Men from "./pages/Men";
+import Bulk from "./pages/Bulk";
 import ProductDetail from "./pages/ProductDetail";
 import Checkout from "./pages/Checkout";
+import Track from "./pages/Track";
+import Login from "./pages/Login";
+import Admin from "./pages/admin/Admin";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
@@ -39,8 +43,12 @@ const App = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/women" element={<Women />} />
                 <Route path="/men" element={<Men />} />
+                <Route path="/bulk" element={<Bulk />} />
                 <Route path="/product/:id" element={<ProductDetail onAddToCart={addItem} />} />
                 <Route path="/checkout" element={<Checkout cartItems={items} onClearCart={clearCart} />} />
+                <Route path="/track" element={<Track />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/admin" element={<Admin />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/privacy" element={<Privacy />} />

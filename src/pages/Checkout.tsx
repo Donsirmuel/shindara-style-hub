@@ -7,19 +7,42 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { CartItem, CheckoutFormData } from '@/lib/types';
+import { formatPrice, tierPriceFor, whatsappOrderLink } from '@/lib/format';
+import { ApiError, createOrder, markOrderPaid, type PlacedOrder } from '@/lib/api';
+import { site } from '@/site.config';
 import { resolveImageUrl } from '@/utils/imageResolver';
+
+function PaidCta({ refId, phone }: { refId: string; phone: string }) {
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (done) return <p className="text-sm font-semibold text-green-700">Transfer noted — bring the receipt to the counter.</p>;
+  return (
+    <Button
+      variant="outline"
+      className="h-11 w-full rounded-full"
+      disabled={busy || !phone}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await markOrderPaid(refId, phone);
+          setDone(true);
+          toast.success('Noted! The vendor will confirm when it lands.');
+        } catch {
+          toast.error('Could not update. You can still show your receipt at pickup.');
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {busy ? 'Saving…' : "I've sent the transfer"}
+    </Button>
+  );
+}
 
 interface CheckoutProps {
   cartItems: CartItem[];
   onClearCart: () => void;
 }
-
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(price);
 
 export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
   const navigate = useNavigate();
@@ -34,21 +57,95 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
     zipCode: '',
   });
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const shipping = 2000;
+  const [placing, setPlacing] = useState(false);
+  const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
+  const [fulfillment, setFulfillment] = useState<'pickup' | 'delivery'>('delivery');
+
+  // Bulk-aware line totals (same tier math as ProductDetail).
+  const lineUnit = (item: CartItem) => tierPriceFor(item.quantity, item.product.price, item.product.tiers ?? []);
+  const subtotal = cartItems.reduce((sum, item) => sum + lineUnit(item) * item.quantity, 0);
+  const shipping = fulfillment === 'pickup' ? 0 : subtotal >= site.shipping.freeAbove ? 0 : site.shipping.baseFee;
   const total = subtotal + shipping;
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!formData.email || !formData.firstName || !formData.lastName || !formData.phone) {
-      toast.error('Fill in all required details before checkout.');
+    if (!formData.phone || !formData.firstName) {
+      toast.error('Add at least your name and phone number.');
       return;
     }
-
-    toast.success('Order placed successfully.');
-    onClearCart();
-    setTimeout(() => navigate('/'), 1800);
+    setPlacing(true);
+    try {
+      const order = await createOrder(
+        { ...formData },
+        cartItems.map((item) => ({
+          productId: item.product.id,
+          size: item.size,
+          color: item.color,
+          qty: item.quantity,
+        })),
+        fulfillment,
+      );
+      if (!order) {
+        // Static demo (no backend): keep the old mock flow.
+        toast.success('Order placed successfully.');
+        onClearCart();
+        setTimeout(() => navigate('/'), 1800);
+        return;
+      }
+      setPlacedOrder(order);
+      onClearCart();
+      toast.success(`Order ${order.id} received!`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        const p = e.payload as { available?: number; productId?: string };
+        toast.error(`Not enough stock${p.productId ? ` for ${p.productId}` : ''}${p.available != null ? ` — ${p.available} left` : ''}. Adjust quantities and retry.`);
+      } else if (e instanceof ApiError) {
+        toast.error('Could not place the order. Check your details and retry.');
+      } else {
+        toast.error('Could not reach the server. Try again.');
+      }
+    } finally {
+      setPlacing(false);
+    }
   };
+
+  if (placedOrder) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card px-8 py-10 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">Order received</p>
+          <h1 className="mt-2 font-mono text-3xl font-bold tracking-widest">{placedOrder.id}</h1>
+          <p className="mt-1 text-xs text-muted-foreground">Screenshot this ref — show it at the counter.</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Total {formatPrice(placedOrder.total)} —{' '}
+            {fulfillment === 'pickup'
+              ? `pick up free at ${site.pickup.address}.`
+              : 'pay on delivery. '}{' '}
+            We will call {formData.phone || 'you'} to confirm.
+          </p>
+          {placedOrder.emailSent && (
+            <p className="mt-2 text-xs text-muted-foreground">Receipt sent to {formData.email}.</p>
+          )}
+          <div className="mt-6 space-y-2">
+            {placedOrder.payment === 'unpaid' && (
+              <PaidCta refId={placedOrder.id} phone={formData.phone} />
+            )}
+            <Button className="h-11 w-full rounded-full" asChild>
+              <a href={whatsappOrderLink(placedOrder.id, placedOrder.total)} target="_blank" rel="noreferrer">
+                Confirm on WhatsApp
+              </a>
+            </Button>
+            <Button variant="outline" className="h-11 w-full rounded-full" onClick={() => navigate('/track')}>
+              Track Order
+            </Button>
+            <Button variant="ghost" className="h-11 w-full rounded-full" onClick={() => navigate('/')}>
+              Continue Shopping
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (cartItems.length === 0) {
     return (
@@ -73,6 +170,34 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
 
         <div className="grid gap-6 lg:grid-cols-[1fr_0.42fr]">
           <form onSubmit={handleSubmit} className="space-y-5">
+            <Card className="border-border/80">
+              <CardHeader>
+                <CardTitle className="text-xl">Pickup or Delivery?</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setFulfillment('delivery')}
+                  className={`rounded-xl border p-4 text-left transition-colors ${fulfillment === 'delivery' ? 'border-accent bg-accent/10' : 'border-border/80'}`}
+                >
+                  <p className="font-semibold">Deliver to me</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {subtotal >= site.shipping.freeAbove ? 'Free (order over ' + formatPrice(site.shipping.freeAbove) + ')' : formatPrice(site.shipping.baseFee)}
+                  </p>
+                </button>
+                {site.pickup.enabled && (
+                  <button
+                    type="button"
+                    onClick={() => setFulfillment('pickup')}
+                    className={`rounded-xl border p-4 text-left transition-colors ${fulfillment === 'pickup' ? 'border-accent bg-accent/10' : 'border-border/80'}`}
+                  >
+                    <p className="font-semibold">Pick up free</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{site.pickup.address}</p>
+                  </button>
+                )}
+              </CardContent>
+            </Card>
+
             <Card className="border-border/80">
               <CardHeader>
                 <CardTitle className="text-xl">Contact Information</CardTitle>
@@ -131,10 +256,12 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="address">Address *</Label>
+                  <Label htmlFor="address">
+                    {fulfillment === 'pickup' ? 'Address (optional — for receipts)' : 'Address *'}
+                  </Label>
                   <Input
                     id="address"
-                    required
+                    required={fulfillment === 'delivery'}
                     placeholder="Street address"
                     value={formData.address}
                     onChange={(event) => setFormData({ ...formData, address: event.target.value })}
@@ -143,19 +270,19 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
 
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div>
-                    <Label htmlFor="city">City *</Label>
+                    <Label htmlFor="city">City{fulfillment === 'delivery' ? ' *' : ''}</Label>
                     <Input
                       id="city"
-                      required
+                      required={fulfillment === 'delivery'}
                       value={formData.city}
                       onChange={(event) => setFormData({ ...formData, city: event.target.value })}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="state">State *</Label>
+                    <Label htmlFor="state">State{fulfillment === 'delivery' ? ' *' : ''}</Label>
                     <Input
                       id="state"
-                      required
+                      required={fulfillment === 'delivery'}
                       value={formData.state}
                       onChange={(event) => setFormData({ ...formData, state: event.target.value })}
                     />
@@ -172,8 +299,8 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
               </CardContent>
             </Card>
 
-            <Button type="submit" size="lg" className="h-11 w-full rounded-full">
-              Place Order
+            <Button type="submit" size="lg" className="h-11 w-full rounded-full" disabled={placing}>
+              {placing ? 'Placing order…' : fulfillment === 'pickup' ? 'Place Pickup Order' : 'Place Order'}
             </Button>
           </form>
 
@@ -212,8 +339,8 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
                     <span className="font-semibold">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Delivery</span>
-                    <span className="font-semibold">{formatPrice(shipping)}</span>
+                    <span className="text-muted-foreground">{fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}</span>
+                    <span className="font-semibold">{shipping === 0 ? 'Free' : formatPrice(shipping)}</span>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between text-base">

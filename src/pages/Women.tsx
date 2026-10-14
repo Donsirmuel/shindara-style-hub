@@ -7,25 +7,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import productsData from '@/data/products.json';
-import categoriesData from '@/data/categories.json';
-import { Category, Product } from '@/lib/types';
+import { useProducts, useCategories } from '@/hooks/useProducts';
+import { formatPrice } from '@/lib/format';
+import { Category } from '@/lib/types';
 import heroWomen from '@/assets/hero-women.jpg';
 
 type SortOption = 'default' | 'popularity' | 'newest' | 'price-asc' | 'price-desc';
 
 const MAX_PRICE = 100000;
 
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(price);
-
 export default function Women() {
-  const products = (productsData as Product[]).filter((product) => product.gender === 'women');
-  const categories = (categoriesData as Category[]).filter((category) => category.gender === 'women');
+  const { data: productsData, isLoading: productsLoading, isError: productsError } = useProducts({ gender: 'women', limit: 100 });
+  const { data: categoriesData } = useCategories();
+  const products = (productsData?.items ?? []).filter((product) => product.gender === 'women');
+  const categories = (categoriesData ?? []).filter((category: Category) => category.gender === 'women');
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('default');
@@ -275,7 +270,25 @@ export default function Women() {
           </section>
 
           <section className="flex-1">
-            {filteredProducts.length > 0 ? (
+            {productsLoading ? (
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3" aria-label="Loading products">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="animate-pulse rounded-2xl border border-border/80 bg-card p-3">
+                    <div className="aspect-[3/4] rounded-xl bg-secondary" />
+                    <div className="mx-1 mb-1 mt-3 h-4 rounded bg-secondary" />
+                    <div className="mx-1 mb-2 h-4 w-2/3 rounded bg-secondary" />
+                  </div>
+                ))}
+              </div>
+            ) : productsError ? (
+              <div className="rounded-2xl border border-border/80 bg-card px-6 py-16 text-center">
+                <h2 className="text-xl font-semibold">Couldn't load the collection</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Check your connection and try again.</p>
+                <Button variant="outline" className="mt-5" onClick={() => window.location.reload()}>
+                  Retry
+                </Button>
+              </div>
+            ) : filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                 {filteredProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />

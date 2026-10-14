@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import productsData from '@/data/products.json';
+import { useProducts } from '@/hooks/useProducts';
+import { formatPrice } from '@/lib/format';
 import { Product } from '@/lib/types';
 import { resolveImageUrl } from '@/utils/imageResolver';
 import heroImage from '@/assets/hero-image.png';
@@ -40,13 +41,6 @@ const categoryCards = [
   },
 ];
 
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(price);
-
 const getTag = (product: Product, index: number) => {
   if (product.hotDeal) return 'Hot';
   if (product.newArrival) return 'Just in';
@@ -62,7 +56,8 @@ const getTagStyles = (tag: string) => {
 };
 
 export default function Home() {
-  const products = productsData as Product[];
+  const { data } = useProducts({ limit: 100 });
+  const products = data?.items ?? [];
   const productMap = new Map(products.map((product) => [product.id, product]));
   const freshPicksOrder = ['prod-003', 'prod-005', 'prod-006', 'prod-007', 'prod-008', 'prod-009', 'prod-010', 'prod-012'];
   const popularOrder = ['prod-003', 'prod-005', 'prod-006', 'prod-010', 'prod-007'];

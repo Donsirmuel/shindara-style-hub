@@ -1,9 +1,25 @@
+import type { FastifyRequest } from "fastify";
 import { createHash, randomUUID } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 
-const secret = () =>
-  new TextEncoder().encode(process.env.JWT_SECRET ?? "dev-only-change-me-in-prod");
+/**
+ * Session cookie name. Overridable per fork (COOKIE_NAME) so two brands
+ * tested on one machine never share sessions. Matches the cart-key
+ * namespacing on the frontend (site.brandSlug).
+ */
+export const SESSION_COOKIE = process.env.COOKIE_NAME ?? "session";
+
+let warnedFallback = false;
+const secret = () => {
+  if (!process.env.JWT_SECRET && !warnedFallback) {
+    warnedFallback = true;
+    // Dev convenience only: production refuses to boot without JWT_SECRET
+    // (see the guard in db/client.ts). Never rely on this default.
+    console.warn("WARN: JWT_SECRET unset — using an insecure dev default.");
+  }
+  return new TextEncoder().encode(process.env.JWT_SECRET ?? "dev-only-change-me-in-prod");
+};
 
 export interface SessionClaims {
   sub: string;
@@ -28,8 +44,7 @@ export async function signSession(claims: SessionClaims): Promise<string> {
     .sign(secret());
 }
 
-export async function readSession(token: string | undefined): Promise<SessionClaims | null> {
-  if (!token) return null;
+export async function readSession(token: string | undefined): Promise<SessionClaims | null> {  if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
     if (typeof payload.sub !== "string") return null;
@@ -39,6 +54,11 @@ export async function readSession(token: string | undefined): Promise<SessionCla
   } catch {
     return null;
   }
+}
+
+/** Read the session from the configured cookie on a request. */
+export function readSessionFrom(req: FastifyRequest): Promise<SessionClaims | null> {
+  return readSession(req.cookies[SESSION_COOKIE] as string | undefined);
 }
 
 /** Cheap request id for guest orders (no uuid dep on the server). */

@@ -1,3 +1,5 @@
+import { site } from '@/site.config';
+
 export default function Privacy() {
   return (
     <div className="min-h-screen py-16 animate-fade-in">
@@ -12,7 +14,7 @@ export default function Privacy() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-foreground">1. Information We Collect</h2>
             <p className="leading-relaxed">
-              At Shindara Fashion World, we collect information that you provide directly to us when you:
+              At {site.brand}, we collect information that you provide directly to us when you:
             </p>
             <ul className="space-y-2 ml-6">
               <li>Create an account or make a purchase</li>
@@ -109,9 +111,9 @@ export default function Privacy() {
               If you have any questions about this Privacy Policy, please contact us:
             </p>
             <ul className="space-y-2 ml-6">
-              <li>Email: privacy@shindara.com</li>
-              <li>Phone: +234 800 000 0000</li>
-              <li>Address: 123 Fashion Street, Lekki Phase 1, Lagos, Nigeria</li>
+              <li>Email: {site.contact.email}</li>
+              <li>Phone: {site.contact.phone}</li>
+              <li>Address: {site.contact.address}</li>
             </ul>
           </section>
         </div>

@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, Menu, Search, User } from 'lucide-react';
+import { ShoppingBag, Menu, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useProducts } from '@/hooks/useProducts';
-import { useAuth } from '@/hooks/useAuth';
 import { formatPrice } from '@/lib/format';
 import { site } from '@/site.config';
 import { resolveImageUrl } from '@/utils/imageResolver';
@@ -29,17 +28,22 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
     const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 250);
     return () => clearTimeout(t);
   }, [searchQuery]);
-  const { data: searchData } = useProducts({ q: debouncedQuery || undefined, limit: 8 });
+  const { data: searchData } = useProducts(
+    { q: debouncedQuery || undefined, limit: 8 },
+    // Don't burn VPS queries (or flash stale lists) while the dialog is shut.
+    // Empty query fetches suggestions; typing narrows server-side.
+    searchOpen,
+  );
   const products = useMemo(() => searchData?.items ?? [], [searchData]);
-  const { user } = useAuth();
 
+  // No account UI here by design: shoppers stay guests (cart + tracking),
+  // the vendor signs in through a private /login link. No public signup.
   const navLinks = [
     { name: 'Women', path: '/women' },
     { name: 'Men', path: '/men' },
     { name: 'Bulk', path: '/bulk' },
     { name: 'New In', path: '/', hash: '#fresh-picks' },
     { name: 'Contact', path: '/contact' },
-    ...(user?.role === 'admin' ? [{ name: 'Admin', path: '/admin' }] : []),
   ];
 
   const isActive = (path: string, hash?: string) => {
@@ -77,8 +81,8 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between md:h-[4.5rem]">
             <Link to="/" className="flex items-center">
-              <span className="text-[0.95rem] font-semibold uppercase tracking-[0.14em] text-foreground md:text-[1.05rem]">
-                {site.brand}
+              <span className="font-heading text-[0.95rem] font-bold uppercase tracking-[0.14em] text-foreground md:text-[1.05rem]">
+                {site.shortName.toUpperCase()}
               </span>
             </Link>
 
@@ -124,19 +128,6 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
                 <span className="sr-only">Shopping cart</span>
               </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                className="h-10 w-10 text-muted-foreground hover:text-foreground"
-                title={user ? `Signed in (${user.role})` : 'Sign in'}
-              >
-                <Link to="/login">
-                  <User className="h-[17px] w-[17px]" />
-                  <span className="sr-only">Account</span>
-                </Link>
-              </Button>
-
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild className="md:hidden">
                   <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-foreground transition-colors">
@@ -146,7 +137,7 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
                 </SheetTrigger>
                 <SheetContent side="right" className="w-[290px]">
                   <SheetHeader>
-                    <SheetTitle className="text-base font-bold tracking-[0.16em]">{site.brand.toUpperCase()}</SheetTitle>
+                    <SheetTitle className="font-heading text-base font-bold tracking-[0.16em]">{site.shortName.toUpperCase()}</SheetTitle>
                   </SheetHeader>
                   <Separator className="my-5" />
                   <nav className="flex flex-col gap-1">
@@ -175,7 +166,7 @@ export function Header({ cartItemCount, onCartOpen }: HeaderProps) {
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto border-border/80 p-0 sm:max-w-xl">
           <DialogHeader className="border-b border-border/70 px-5 pb-4 pt-5">
-            <DialogTitle>Search {site.brand}</DialogTitle>
+            <DialogTitle>Search {site.shortName}</DialogTitle>
             <Input
               autoFocus
               value={searchQuery}

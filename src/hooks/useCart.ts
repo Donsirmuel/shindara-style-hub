@@ -1,15 +1,29 @@
 import { useState, useEffect } from 'react';
 import { CartItem, Product } from '@/lib/types';
+import { site } from '@/site.config';
 import { toast } from 'sonner';
+
+const CART_KEY = `${site.brandSlug}-cart`;
 
 export function useCart() {
   const [items, setItems] = useState<CartItem[]>(() => {
-    const stored = localStorage.getItem('shindara-cart');
-    return stored ? JSON.parse(stored) : [];
+    try {
+      const stored = localStorage.getItem(CART_KEY);
+      const parsed = stored ? (JSON.parse(stored) as unknown) : [];
+      // Guard against corrupted storage or an older cart shape.
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (entry): entry is CartItem =>
+          !!entry && typeof entry === 'object' &&
+          !!(entry as CartItem).product && typeof (entry as CartItem).quantity === 'number',
+      );
+    } catch {
+      return [];
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem('shindara-cart', JSON.stringify(items));
+    localStorage.setItem(CART_KEY, JSON.stringify(items));
   }, [items]);
 
   const addItem = (product: Product, size: string, color: string, quantity: number = 1) => {

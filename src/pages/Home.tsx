@@ -3,16 +3,13 @@ import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProducts } from '@/hooks/useProducts';
 import { formatPrice } from '@/lib/format';
+import { site } from '@/site.config';
 import { Product } from '@/lib/types';
 import { resolveImageUrl } from '@/utils/imageResolver';
 import heroImage from '@/assets/hero-image.png';
 
-const featuredLookItems = [
-  { name: 'Structured Silk Top', price: 8500 },
-  { name: 'Linen Wide-Leg Trousers', price: 12000 },
-  { name: 'Mini Leather Bucket Bag', price: 10500 },
-  { name: 'Nude Pointed Mules', price: 14000 },
-];
+// Curated by product id so names, photos and the total always match the live catalog.
+const featuredLookIds = ['prod-003', 'prod-005', 'prod-006', 'prod-004'];
 
 const categoryCards = [
   {
@@ -41,10 +38,11 @@ const categoryCards = [
   },
 ];
 
-const getTag = (product: Product, index: number) => {
+const getTag = (product: Product) => {
   if (product.hotDeal) return 'Hot';
   if (product.newArrival) return 'Just in';
-  if (index % 3 === 1) return 'Low stock';
+  // Real scarcity only: a variant at or under the vendor's threshold.
+  if ((product.minStock ?? Infinity) <= site.inventory.lowStockAt) return 'Low stock';
   return 'Popular';
 };
 
@@ -68,6 +66,9 @@ export default function Home() {
   const popularItems = popularOrder
     .map((id) => productMap.get(id))
     .filter((product): product is Product => Boolean(product));
+  const featuredLookItems = featuredLookIds
+    .map((id) => productMap.get(id))
+    .filter((product): product is Product => Boolean(product));
   const lookTotal = featuredLookItems.reduce((sum, item) => sum + item.price, 0);
 
   return (
@@ -75,7 +76,7 @@ export default function Home() {
       <section className="relative min-h-[calc(100vh-4.5rem)] overflow-hidden">
         <img
           src={heroImage}
-          alt="Shindara boutique interior"
+          alt={`${site.brand} boutique interior`}
           className="absolute inset-0 h-full w-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-foreground/70 via-foreground/35 to-foreground/20" />
@@ -131,7 +132,7 @@ export default function Home() {
 
             <div className="mt-6 space-y-4 border-y border-border/80 py-5">
               {featuredLookItems.map((item) => (
-                <div key={item.name} className="flex items-center justify-between gap-4 text-sm">
+                <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-foreground/80">{item.name}</span>
                   <span className="font-semibold text-foreground">{formatPrice(item.price)}</span>
                 </div>
@@ -163,8 +164,8 @@ export default function Home() {
           </div>
 
           <div className="mt-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {freshPicks.map((product, index) => {
-              const tag = getTag(product, index);
+            {freshPicks.map((product) => {
+              const tag = getTag(product);
               return (
                 <Link
                   key={product.id}
@@ -244,7 +245,7 @@ export default function Home() {
 
       <section className="bg-foreground py-16 text-primary-foreground sm:py-20">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/65">Shindara philosophy</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/65">{site.shortName} philosophy</p>
           <h2 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">We Don&apos;t Do Too Much</h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-primary-foreground/80 sm:text-lg">
             Just clean clothes that fit well, wear well, and look right every day.

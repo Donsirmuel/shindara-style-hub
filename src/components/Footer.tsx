@@ -9,7 +9,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-8 sm:grid-cols-3">
           <div className="space-y-3">
-            <h3 className="text-[0.9rem] font-semibold tracking-[0.14em]">{site.brand.toUpperCase()}</h3>
+            <h3 className="font-heading text-[0.9rem] font-bold tracking-[0.14em]">{site.shortName.toUpperCase()}</h3>
             <p className="max-w-xs text-sm leading-6 text-muted-foreground">
               {site.description}
             </p>

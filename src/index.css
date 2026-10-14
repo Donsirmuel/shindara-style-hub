@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Shindara Fashion World Design System */
+    /* Brand design system ( see src/site.config.ts ) */
     --background: 36 34% 96%;
     --foreground: 24 10% 10%;
 

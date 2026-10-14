@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { site } from '@/site.config';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -50,8 +51,8 @@ export default function Contact() {
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Phone</h2>
-                  <p className="mt-1 text-sm font-medium">+234 800 000 0000</p>
-                  <p className="text-sm text-muted-foreground">Mon - Sat, 9am - 6pm</p>
+                  <p className="mt-1 text-sm font-medium">{site.contact.phone}</p>
+                  <p className="text-sm text-muted-foreground">{site.contact.hours}</p>
                 </div>
               </CardContent>
             </Card>
@@ -63,8 +64,8 @@ export default function Contact() {
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Email</h2>
-                  <p className="mt-1 text-sm font-medium">info@shindara.com</p>
-                  <p className="text-sm text-muted-foreground">support@shindara.com</p>
+                  <p className="mt-1 text-sm font-medium">{site.contact.email}</p>
+                  <p className="text-sm text-muted-foreground">We reply as quickly as possible.</p>
                 </div>
               </CardContent>
             </Card>
@@ -76,7 +77,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Store</h2>
-                  <p className="mt-1 text-sm font-medium">Lekki Phase 1, Lagos</p>
+                  <p className="mt-1 text-sm font-medium">{site.pickup.enabled ? site.pickup.address : site.contact.address}</p>
                   <p className="text-sm text-muted-foreground">Visit us for fittings and pickups.</p>
                 </div>
               </CardContent>
@@ -111,16 +112,16 @@ export default function Contact() {
                     </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+234 800 000 0000"
-                      value={formData.phone}
-                      onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
-                    />
-                  </div>
+                    <div>
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder={site.contact.phone}
+                        value={formData.phone}
+                        onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                      />
+                    </div>
 
                   <div>
                     <Label htmlFor="message">Message *</Label>

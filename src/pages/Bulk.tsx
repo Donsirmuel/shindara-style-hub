@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { MessageCircle } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import { BackToTop } from '@/components/BackToTop';
@@ -34,7 +33,13 @@ export default function Bulk() {
               </a>
             </Button>
             <Button variant="outline" className="h-11 rounded-full" asChild>
-              <Link to="/login">Get a Wholesale Account</Link>
+              <a
+                href={`https://wa.me/${site.contact.whatsapp}?text=${encodeURIComponent(`Hello ${site.brand}! I want to buy wholesale. My business name is: `)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Become a Wholesaler
+              </a>
             </Button>
           </div>
         </div>

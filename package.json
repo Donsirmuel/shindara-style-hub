@@ -4,14 +4,17 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/sync-brand.mjs",
     "dev": "vite",
     "dev:api": "tsx watch server/index.ts",
     "dev:full": "concurrently \"npm:dev\" \"npm:dev:api\"",
+    "prebuild": "node scripts/sync-brand.mjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "build:full": "vite build",
     "start": "node --import tsx/esm server/index.ts",
     "db:seed": "tsx server/db/seed.ts",
+    "fork:check": "node scripts/fork-check.mjs",
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "preview": "vite preview"

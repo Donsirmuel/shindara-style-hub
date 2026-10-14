@@ -5,7 +5,7 @@ import { products, variants, priceTiers, categories } from "../db/schema.js";
 import { eq, and, ilike, or, asc, inArray, sql } from "drizzle-orm";
 
 const listQuery = z.object({
-  gender: z.enum(["men", "women", "unisex"]).optional(),
+  gender: z.enum(["men", "women", "unisex", "all"]).optional(),
   category: z.string().optional(),
   q: z.string().max(80).optional(),
   featured: z.coerce.boolean().optional(),
@@ -20,11 +20,13 @@ export async function productRoutes(app: FastifyInstance) {
     return db.select().from(categories).orderBy(asc(categories.name));
   });
 
-  app.get("/api/products", async (req) => {
-    const query = listQuery.parse(req.query);
+  app.get("/api/products", async (req, reply) => {
+    const parsed = listQuery.safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_query" });
+    const query = parsed.data;
     const conds = [];
     if (!query.includeHidden) conds.push(eq(products.inStock, true));
-    if (query.gender) conds.push(eq(products.gender, query.gender));
+    if (query.gender && query.gender !== "all") conds.push(eq(products.gender, query.gender));
     if (query.category) conds.push(eq(products.categoryId, query.category));
     if (query.featured) conds.push(eq(products.featured, true));
     if (query.q) {
@@ -65,10 +67,14 @@ export async function productRoutes(app: FastifyInstance) {
     const enriched = items.map((p) => {
       const vars = variantsByProduct.get(p.id) ?? [];
       const stocks = vars.map((v) => v.stock);
+      // Products without variants (e.g. just created in admin) fall back to a
+      // generic option so they render sanely; stock 0 keeps them unorderable.
+      const sizes = vars.length ? [...new Set(vars.map((v) => v.size))] : ["One Size"];
+      const colors = vars.length ? [...new Set(vars.map((v) => v.color))] : ["Standard"];
       return {
         ...p,
-        sizes: [...new Set(vars.map((v) => v.size))],
-        colors: [...new Set(vars.map((v) => v.color))],
+        sizes,
+        colors,
         tiers: (tiersByProduct.get(p.id) ?? []).map((t) => ({ minQty: t.minQty, price: t.price })),
         // Stock rollups for vendor alerts (threshold lives in site.config.ts client-side).
         stockTotal: stocks.reduce((s, n) => s + n, 0),
@@ -85,10 +91,12 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.get("/api/products/:slugOrId", async (req, reply) => {
     const { slugOrId } = req.params as { slugOrId: string };
-    const rows = await db.select().from(products).where(
-      or(eq(products.slug, slugOrId), eq(products.id, slugOrId))!,
-    ).limit(1);
-    const product = rows[0];
+    // Exact id first (stable), slug second — never ambiguous, never random.
+    const byId = await db.select().from(products).where(eq(products.id, slugOrId)).limit(1);
+    const bySlug = byId.length
+      ? []
+      : await db.select().from(products).where(eq(products.slug, slugOrId)).limit(1);
+    const product = byId[0] ?? bySlug[0];
     if (!product) return reply.code(404).send({ error: "not_found" });
     const [vars, tiers] = await Promise.all([
       db.select().from(variants).where(eq(variants.productId, product.id)),

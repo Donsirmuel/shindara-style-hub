@@ -1,18 +1,31 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { createWriteStream } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 import fs from "node:fs";
-import { eq, desc, inArray, sql } from "drizzle-orm";
-import { db } from "../db/client.js";
+import { eq, desc, inArray, or, sql } from "drizzle-orm";
+import { db, supportsTransactions } from "../db/client.js";
 import { orders, orderItems, products, variants, priceTiers, users, categories } from "../db/schema.js";
 import { requireAdmin } from "./auth.js";
+import { uploadsDir } from "../lib/paths.js";
 
-const uploadsDir = process.env.UPLOADS_DIR ?? "./uploads";
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 const extFor = (mime: string) => (mime === "image/png" ? ".png" : mime === "image/webp" ? ".webp" : ".jpg");
+
+/** Magic-byte check so a renamed .exe can't ride in on a spoofed mimetype. */
+function sniffImage(bytes: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (
+    bytes.length > 8 &&
+    bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
+    bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a
+  ) return "image/png";
+  if (
+    bytes.length > 12 &&
+    bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP"
+  ) return "image/webp";
+  return null;
+}
 
 const statusBody = z.object({ status: z.enum(["pending", "confirmed", "ready", "completed", "cancelled"]) });
 const paymentBody = z.object({ payment: z.enum(["unpaid", "paid_pending", "paid"]) });
@@ -70,7 +83,12 @@ export async function adminRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const current = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
     if (!current.length) return reply.code(404).send({ error: "not_found" });
-    // Cancelling an unfulfilled order returns its items to stock.
+    // A cancelled order is terminal: leaving it would double-restock below.
+    if (current[0].status === "cancelled" && body.data.status !== "cancelled") {
+      return reply.code(409).send({ error: "order_cancelled", hint: "Cancelled orders stay cancelled — place a new order instead." });
+    }
+    // Cancelling an unfulfilled order returns its items to stock (exactly once:
+    // the guard above makes a second cancel a no-op for already-cancelled).
     if (body.data.status === "cancelled" && (current[0].status === "pending" || current[0].status === "confirmed")) {
       const lines = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
       for (const line of lines) {
@@ -103,9 +121,9 @@ export async function adminRoutes(app: FastifyInstance) {
     const body = productBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
     const b = body.data;
-    const id = b.id ?? `prod-${Date.now().toString(36)}`;
+    const id = b.id ?? `prod-${randomUUID().slice(0, 8)}`;
     const slug = `${id}-${b.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)}`;
-    await db.insert(products).values({
+    const created = await db.insert(products).values({
       id,
       slug,
       name: b.name,
@@ -117,6 +135,20 @@ export async function adminRoutes(app: FastifyInstance) {
       images: b.images,
       inStock: b.inStock,
       featured: b.featured,
+    }).onConflictDoNothing().returning({ id: products.id });
+    // Explicit id/slug collision (or same-millisecond retry): say so instead
+    // of reporting a success that never happened.
+    if (!created.length) return reply.code(409).send({ error: "id_taken", hint: "That product id already exists." });
+    // New products need at least one orderable option; the vendor then edits
+    // sizes and stock in the variant manager.
+    const defaultVid = `${id}-one-size-standard`;
+    await db.insert(variants).values({
+      id: defaultVid,
+      productId: id,
+      size: "One Size",
+      color: "Standard",
+      sku: `${id}-ONE-SIZE-STANDARD`.toUpperCase().replace(/[^A-Z0-9]+/g, "-"),
+      stock: 0,
     }).onConflictDoNothing();
     return { id, slug };
   });
@@ -185,12 +217,42 @@ export async function adminRoutes(app: FastifyInstance) {
     return { id: newId, slug };
   });
 
-  app.put("/api/admin/products/:id/tiers", async (req, reply) => {    const body = tiersBody.safeParse(req.body);
+  app.put("/api/admin/products/:id/tiers", async (req, reply) => {
+    const body = tiersBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
     const { id } = req.params as { id: string };
-    await db.execute(sql`DELETE FROM price_tiers WHERE product_id = ${id}`);
-    if (body.data.tiers.length) {
-      await db.insert(priceTiers).values(body.data.tiers.map((t) => ({ productId: id, minQty: t.minQty, price: t.price })));
+    const exists = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
+    if (!exists.length) return reply.code(404).send({ error: "not_found" });
+    // Replace-then-insert must be atomic: a crash between DELETE and INSERT
+    // would otherwise leave shoppers with zero tiers (full price for bulk).
+    const replace = async (exec: typeof db) => {
+      await exec.execute(sql`DELETE FROM price_tiers WHERE product_id = ${id}`);
+      if (body.data.tiers.length) {
+        await exec.insert(priceTiers).values(body.data.tiers.map((t) => ({ productId: id, minQty: t.minQty, price: t.price })));
+      }
+    };
+    try {
+      if (supportsTransactions) {
+        await db.transaction(async (tx) => {
+          await replace(tx as unknown as typeof db);
+        });
+      } else {
+        await replace(db);
+      }
+    } catch (e) {
+      // Duplicate min_qty for one product (unique(product_id, min_qty)).
+      // Real Postgres reports code 23505 on the error; PGlite nests it one
+      // level down (drizzle wraps driver errors in `cause`).
+      const codes: string[] = [];
+      let cur: unknown = e;
+      for (let i = 0; i < 3 && cur instanceof Error; i++) {
+        if ("code" in cur) codes.push(String((cur as { code: unknown }).code));
+        cur = (cur as { cause?: unknown }).cause;
+      }
+      if (codes.includes("23505")) {
+        return reply.code(409).send({ error: "duplicate_tier", hint: "Each minimum quantity may appear only once." });
+      }
+      throw e;
     }
     return { ok: true };
   });
@@ -217,15 +279,26 @@ export async function adminRoutes(app: FastifyInstance) {
     const body = variantCreateBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
     const { id: productId } = req.params as { id: string };
+    const exists = await db.select({ id: products.id }).from(products).where(eq(products.id, productId)).limit(1);
+    if (!exists.length) return reply.code(404).send({ error: "not_found" });
     const vid = `${productId}-${body.data.size}-${body.data.color}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const sku = `${productId}-${body.data.size}-${body.data.color}`.toUpperCase().replace(/[^A-Z0-9]+/g, "-");
+    // Never silently merge: "M" vs "m" (or an SKU clash) is a 409 telling the
+    // vendor to edit the existing variant's stock instead.
+    const clash = await db.select({ id: variants.id }).from(variants).where(
+      or(eq(variants.id, vid), eq(variants.sku, sku)),
+    ).limit(1);
+    if (clash.length) {
+      return reply.code(409).send({ error: "variant_exists", hint: "That size/color already exists — adjust its stock instead." });
+    }
     await db.insert(variants).values({
       id: vid,
       productId,
       size: body.data.size,
       color: body.data.color,
-      sku: `${productId}-${body.data.size}-${body.data.color}`.toUpperCase().replace(/[^A-Z0-9]+/g, "-"),
+      sku,
       stock: body.data.stock,
-    }).onConflictDoUpdate({ target: variants.id, set: { stock: body.data.stock } });
+    });
     return { id: vid };
   });
 
@@ -298,13 +371,31 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // Local-disk image upload (template default: no S3). 5MB, jpg/png/webp.
+  // Mimetype header is client-controlled, so the actual bytes are sniffed too.
   app.post("/api/admin/uploads", async (req, reply) => {
     const part = await req.file({ limits: { fileSize: 5 * 1024 * 1024 } });
     if (!part) return reply.code(400).send({ error: "no_file" });
     if (!ALLOWED.has(part.mimetype)) return reply.code(400).send({ error: "bad_type", allowed: [...ALLOWED] });
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    const name = `${Date.now()}-${randomUUID().slice(0, 8)}${extFor(part.mimetype)}`;
-    await pipeline(part.file, createWriteStream(path.join(uploadsDir, name)));
+    const chunks: Buffer[] = [];
+    let size = 0;
+    try {
+      for await (const chunk of part.file) {
+        size += (chunk as Buffer).length;
+        if (size > 5 * 1024 * 1024 + 64 * 1024) {
+          return reply.code(400).send({ error: "too_large" });
+        }
+        chunks.push(chunk as Buffer);
+      }
+    } catch {
+      return reply.code(400).send({ error: "unreadable" });
+    }
+    const buf = Buffer.concat(chunks);
+    const kind = sniffImage(buf);
+    if (!kind || kind !== part.mimetype) {
+      return reply.code(400).send({ error: "bad_content", hint: "File bytes don't match its image type." });
+    }
+    const name = `${Date.now()}-${randomUUID().slice(0, 8)}${extFor(kind)}`;
+    await fs.promises.writeFile(path.join(uploadsDir(), name), buf);
     return { url: `/uploads/${name}` };
   });
 }

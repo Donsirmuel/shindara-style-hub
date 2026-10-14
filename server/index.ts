@@ -8,16 +8,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { migrate, supportsTransactions } from "./db/client.js";
+import { uploadsDir } from "./lib/paths.js";
 import { productRoutes } from "./routes/products.js";
 import { authRoutes } from "./routes/auth.js";
 import { orderRoutes } from "./routes/orders.js";
+import { paymentRoutes } from "./routes/payments.js";
 import { adminRoutes } from "./routes/admin.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const distDir = path.join(root, "dist");
-const uploadsDir = process.env.UPLOADS_DIR ?? path.join(root, "uploads");
-fs.mkdirSync(uploadsDir, { recursive: true });
+const uploads = uploadsDir();
 
 const app = Fastify({ logger: process.env.NODE_ENV !== "production" ? true : false });
 await app.register(fastifyCookie);
@@ -29,7 +30,8 @@ await app.register(fastifyHelmet, {
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:"],
+      // Product images may be remote URLs once vendors hotlink supplier photos.
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
       connectSrc: ["'self'"],
     },
   },
@@ -40,6 +42,7 @@ await migrate();
 await app.register(productRoutes);
 await app.register(authRoutes);
 await app.register(orderRoutes);
+await app.register(paymentRoutes);
 await app.register(adminRoutes);
 
 const bootTime = new Date().toISOString();
@@ -52,8 +55,8 @@ app.get("/api/health", async () => ({
 }));
 
 // Local uploads (template default: disk on VPS, no S3)
-if (fs.existsSync(uploadsDir)) {
-  await app.register(fastifyStatic, { root: uploadsDir, prefix: "/uploads/", decorateReply: false });
+if (fs.existsSync(uploads)) {
+  await app.register(fastifyStatic, { root: uploads, prefix: "/uploads/", decorateReply: false });
 }
 
 // Serve Vite build if present (prod on VPS). In dev, Vite runs separately.

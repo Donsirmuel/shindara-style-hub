@@ -62,9 +62,16 @@ export const orders = pgTable("orders", {
   status: text("status").notNull().$type<"pending" | "confirmed" | "ready" | "completed" | "cancelled">().default("pending"),
   fulfillment: text("fulfillment").notNull().$type<"pickup" | "delivery">().default("delivery"),
   payment: text("payment").notNull().$type<"unpaid" | "paid_pending" | "paid">().default("unpaid"),
+  paymentRef: text("payment_ref"),
   subtotal: integer("subtotal").notNull(),
   total: integer("total").notNull(),
   contactJson: text("contact_json").notNull().default("{}"),
+});
+
+export const webhookEvents = pgTable("webhook_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  receivedAt: text("received_at").notNull().default(""),
 });
 
 export const orderItems = pgTable("order_items", {

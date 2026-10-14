@@ -86,6 +86,14 @@ export const DDL = `
     -- Template evolution: safe to re-run on existing VPS data.
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS fulfillment TEXT NOT NULL DEFAULT 'delivery';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment TEXT NOT NULL DEFAULT 'unpaid';
+    -- Bachs online payments: checkout id per order + webhook dedupe log.
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_ref TEXT;
+    CREATE INDEX IF NOT EXISTS idx_orders_payment_ref ON orders(payment_ref);
+    CREATE TABLE IF NOT EXISTS webhook_events (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      received_at TEXT NOT NULL DEFAULT (NOW()::TEXT)
+    );
 `;
 
 export function dataDir(): string {

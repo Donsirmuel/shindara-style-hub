@@ -4,7 +4,8 @@ import { z } from "zod";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, supportsTransactions, type Db } from "../db/client.js";
 import { orders, orderItems, products, variants, priceTiers } from "../db/schema.js";
-import { readSession } from "../auth/session.js";
+import { readSessionFrom } from "../auth/session.js";
+import { normalizePhone } from "../lib/phone.js";
 import { sendOrderEmail } from "../notify/email.js";
 
 const STORE_NAME = process.env.STORE_NAME ?? "Our Store";
@@ -26,6 +27,12 @@ function contactPhone(order: { contactJson: string }): string {
   }
 }
 
+/** Ref + phone unlock an order. Phone is normalized so formatting never locks a customer out. */
+function phoneMatches(order: { contactJson: string }, rawPhone: string): boolean {
+  const want = normalizePhone(rawPhone);
+  return !!want && normalizePhone(contactPhone(order)) === want;
+}
+
 /**
  * Memorable order refs like SH-482913. Unguessable enough for lookup-by-ref,
  * short enough to read over the phone or type into WhatsApp.
@@ -33,16 +40,17 @@ function contactPhone(order: { contactJson: string }): string {
 async function newOrderId(): Promise<string> {
   // Per-client prefix, e.g. ORDER_PREFIX=ADA → ADA-482913. Set it to the
   // brand's initials when forking the template.
-  const prefix = (process.env.ORDER_PREFIX ?? "SH").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4) || "SH";
-  for (let attempt = 0; attempt < 8; attempt++) {
+  const prefix = (process.env.ORDER_PREFIX ?? "ORD").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4) || "ORD";
+  for (let attempt = 0; attempt < 32; attempt++) {
     // 100000–999999: no leading zero, no confusing letters.
     const code = String(randomInt(100000, 1000000));
     const id = `${prefix}-${code}`;
     const existing = await db.select({ id: orders.id }).from(orders).where(eq(orders.id, id)).limit(1);
     if (!existing.length) return id;
   }
-  // Astronomically unlikely fallback, still memorable.
-  return `${prefix}-${Date.now().toString().slice(-6)}`;
+  // Practically unreachable (32 misses in a 900k space); fail Loudly so the
+  // insert's PK conflict can never surface as a bare 500.
+  throw Object.assign(new Error("order ref exhausted"), { statusCode: 503 });
 }
 
 const contactSchema = z.object({
@@ -136,7 +144,7 @@ export async function orderRoutes(app: FastifyInstance) {
     const body = createOrderBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
 
-    const session = await readSession(req.cookies.shindara_session);
+    const session = await readSessionFrom(req);
     const productIds = [...new Set(body.data.items.map((i) => i.productId))];
     const [prods, vars, tiers] = await Promise.all([
       db.select().from(products).where(inArray(products.id, productIds)),
@@ -194,7 +202,17 @@ export async function orderRoutes(app: FastifyInstance) {
           await persistOrder(tx as unknown as Db, persistArgs);
         });
       } else {
-        await persistOrder(db, persistArgs);
+        // PGlite has no interactive transactions: compensate manually so a
+        // mid-write stock race can't leave a ghost order behind.
+        try {
+          await persistOrder(db, persistArgs);
+        } catch (e) {
+          if (e instanceof StockRaceError) {
+            await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
+            await db.delete(orders).where(eq(orders.id, orderId));
+          }
+          throw e;
+        }
       }
     } catch (e) {
       if (e instanceof StockRaceError) {
@@ -235,43 +253,52 @@ export async function orderRoutes(app: FastifyInstance) {
 
   app.get("/api/orders/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const rows = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+    const rows = await db.select().from(orders).where(eq(orders.id, id.toUpperCase())).limit(1);
     const order = rows[0];
     if (!order) return reply.code(404).send({ error: "not_found" });
-    // Only the owner (or anyone with a guest ref within 7 days — template keeps it simple:
-    // order id is unguessable) may view. Admin view lives under /api/admin.
-    const session = await readSession(req.cookies.shindara_session);
-    if (order.customerId && order.customerId !== session?.sub && session?.role !== "admin") {
-      return reply.code(403).send({ error: "forbidden" });
+    const session = await readSessionFrom(req);
+    if (order.customerId) {
+      // Registered owner's order: owner or admin only.
+      if (order.customerId !== session?.sub && session?.role !== "admin") {
+        return reply.code(403).send({ error: "forbidden" });
+      }
+    } else {
+      // Guest order: ref alone is not enough — require the order phone,
+      // same rule as /api/track, so contact PII isn't enumerable by ref.
+      const phone = String((req.query as { phone?: string }).phone ?? "");
+      if (!phoneMatches(order, phone) && session?.role !== "admin") {
+        return reply.code(404).send({ error: "not_found" });
+      }
     }
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
     return { order, items };
   });
 
   // Customer: "I've sent the transfer". Phone must match the order's contact
   // phone — that's the only secret a guest customer has.
-  app.post("/api/orders/:id/mark-paid", async (req, reply) => {
-    const parsed = z.object({ phone: z.string().min(7).max(20) }).safeParse(req.body);
+  // Rate-limited: the phone check is the only thing guarding paid status.
+  app.post("/api/orders/:id/mark-paid", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const parsed = z.object({ phone: z.string().min(4).max(30) }).safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body" });
     const { id } = req.params as { id: string };
-    const rows = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+    const rows = await db.select().from(orders).where(eq(orders.id, id.toUpperCase())).limit(1);
     const order = rows[0];
     if (!order) return reply.code(404).send({ error: "not_found" });
-    if (contactPhone(order) !== parsed.data.phone.trim()) {
+    if (!phoneMatches(order, parsed.data.phone)) {
       return reply.code(403).send({ error: "phone_mismatch" });
     }
     if (order.payment !== "unpaid") return { ok: true, payment: order.payment };
-    await db.update(orders).set({ payment: "paid_pending" }).where(eq(orders.id, id));
+    await db.update(orders).set({ payment: "paid_pending" }).where(eq(orders.id, order.id));
     return { ok: true, payment: "paid_pending" };
   });
 
   // Customer self-service tracking: ref + phone unlocks status (no account needed).
-  app.get("/api/track/:id", async (req, reply) => {
+  app.get("/api/track/:id", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const phone = String((req.query as { phone?: string }).phone ?? "").trim();
+    const phone = String((req.query as { phone?: string }).phone ?? "");
     const rows = await db.select().from(orders).where(eq(orders.id, id.toUpperCase())).limit(1);
     const order = rows[0];
-    if (!order || contactPhone(order) !== phone || !phone) {
+    if (!order || !phoneMatches(order, phone)) {
       return reply.code(404).send({ error: "not_found" });
     }
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));

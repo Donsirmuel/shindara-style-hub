@@ -2,10 +2,12 @@ import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCookie from "@fastify/cookie";
 import fastifyMultipart from "@fastify/multipart";
+import fastifyHelmet from "@fastify/helmet";
+import fastifyRateLimit from "@fastify/rate-limit";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { migrate } from "./db/client.js";
+import { migrate, supportsTransactions } from "./db/client.js";
 import { productRoutes } from "./routes/products.js";
 import { authRoutes } from "./routes/auth.js";
 import { orderRoutes } from "./routes/orders.js";
@@ -20,16 +22,32 @@ fs.mkdirSync(uploadsDir, { recursive: true });
 const app = Fastify({ logger: process.env.NODE_ENV !== "production" ? true : false });
 await app.register(fastifyCookie);
 await app.register(fastifyMultipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
+await app.register(fastifyHelmet, {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+    },
+  },
+});
+// Shared abuse budget + tighter per-route caps on auth/order routes below.
+await app.register(fastifyRateLimit, { global: true, max: 300, timeWindow: "1 minute" });
 await migrate();
 await app.register(productRoutes);
 await app.register(authRoutes);
 await app.register(orderRoutes);
 await app.register(adminRoutes);
 
+const bootTime = new Date().toISOString();
 app.get("/api/health", async () => ({
   ok: true,
   version: "1.0.0",
-  db: "pglite",
+  db: supportsTransactions ? "postgres" : "pglite",
+  uptime: Math.round((Date.now() - Date.parse(bootTime)) / 1000),
   time: new Date().toISOString(),
 }));
 

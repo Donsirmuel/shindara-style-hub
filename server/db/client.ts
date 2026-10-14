@@ -5,6 +5,14 @@ import pg from "pg";
 import { DDL, dataDir, shouldUseRealPostgres } from "./ddl.js";
 import * as schema from "./schema.js";
 
+// Every fork must set its own secret — a shared default would let one
+// client's cookies be forged into another's. Refuse to boot instead.
+// (Checked here so it runs before any DB work; ES imports evaluate first.)
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  console.error("FATAL: JWT_SECRET is not set. Copy .env.example to .env and set it.");
+  process.exit(1);
+}
+
 /**
  * Dual-engine database. Same Drizzle schema + same DDL either way:
  *

@@ -46,7 +46,9 @@ const registerBody = z.object({
 }).refine((b) => b.email || b.phone, { message: "email or phone required" });
 
 export async function authRoutes(app: FastifyInstance) {
-  app.post("/api/auth/register", async (req, reply) => {
+  // Brute-force guard: 20 account attempts per minute per IP.
+  const strict = { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } };
+  app.post("/api/auth/register", { ...strict }, async (req, reply) => {
     const body = registerBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
     const { email, phone, password, businessName, role } = body.data;
@@ -78,7 +80,7 @@ export async function authRoutes(app: FastifyInstance) {
     phone: z.string().optional(),
     password: z.string().min(1),
   }).refine((b) => b.email || b.phone, { message: "email or phone required" });
-  app.post("/api/auth/login", async (req, reply) => {
+  app.post("/api/auth/login", { ...strict }, async (req, reply) => {
     const body = loginBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
     const idConds = [

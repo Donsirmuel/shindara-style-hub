@@ -131,7 +131,8 @@ async function persistOrder(
 }
 
 export async function orderRoutes(app: FastifyInstance) {
-  app.post("/api/orders", async (req, reply) => {
+  // Spam guard: 30 checkouts per minute per IP is plenty for real shoppers.
+  app.post("/api/orders", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
     const body = createOrderBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
 

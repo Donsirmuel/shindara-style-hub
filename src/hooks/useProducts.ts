@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchCategories, fetchProductDetail, fetchProducts, type ProductListParams } from "@/lib/api";
 
-export function useProducts(params: ProductListParams = {}) {
+export function useProducts(params: ProductListParams = {}, enabled = true) {
   return useQuery({
     queryKey: ["products", params],
     queryFn: () => fetchProducts(params),
     staleTime: 60_000,
+    enabled,
   });
 }
 

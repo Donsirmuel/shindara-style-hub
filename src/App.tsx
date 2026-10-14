@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { Cart } from './components/Cart';
+import { ScrollToTop } from './components/ScrollToTop';
 import { useCart } from './hooks/useCart';
 import Home from "./pages/Home";
 import Women from "./pages/Women";
@@ -36,6 +37,7 @@ const App = () => {
         <Toaster />
         <Sonner />
   <BrowserRouter basename={basePath === "" ? "/" : basePath}>
+          <ScrollToTop />
           <div className="flex flex-col min-h-screen">
             <Header cartItemCount={totalItems} onCartOpen={() => setCartOpen(true)} />
             <main className="flex-1">

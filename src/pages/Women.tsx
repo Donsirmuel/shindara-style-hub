@@ -14,17 +14,25 @@ import heroWomen from '@/assets/hero-women.jpg';
 
 type SortOption = 'default' | 'popularity' | 'newest' | 'price-asc' | 'price-desc';
 
-const MAX_PRICE = 100000;
+const FALLBACK_MAX_PRICE = 100000;
 
 export default function Women() {
   const { data: productsData, isLoading: productsLoading, isError: productsError } = useProducts({ gender: 'women', limit: 100 });
   const { data: categoriesData } = useCategories();
-  const products = (productsData?.items ?? []).filter((product) => product.gender === 'women');
-  const categories = (categoriesData ?? []).filter((category: Category) => category.gender === 'women');
-
+  const products = (productsData?.items ?? []).filter((product) => product.gender === 'women' || product.gender === 'unisex');
+  const categories = (categoriesData ?? []).filter((category: Category) => category.gender === 'women' || category.gender === 'all');
+  // Catalog-driven ceiling so a ₦150k agbada never vanishes behind a hardcoded cap.
+  const MAX_PRICE = Math.max(FALLBACK_MAX_PRICE, ...products.map((p) => p.price));
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('default');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, MAX_PRICE]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, FALLBACK_MAX_PRICE]);
+  const [syncedMax, setSyncedMax] = useState(FALLBACK_MAX_PRICE);
+  // Adopt a higher catalog ceiling on arrival, unless the shopper already
+  // customized the range (render-time adjustment, runs at most on load).
+  if (MAX_PRICE !== syncedMax && priceRange[0] === 0 && priceRange[1] === syncedMax) {
+    setSyncedMax(MAX_PRICE);
+    setPriceRange([0, MAX_PRICE]);
+  }
 
   const hasPriceFilter = priceRange[0] !== 0 || priceRange[1] !== MAX_PRICE;
   const activeFilterCount = selectedCategories.length + (hasPriceFilter ? 1 : 0);
@@ -149,13 +157,13 @@ export default function Women() {
           />
           <div className="space-y-2">
             <Button variant="ghost" className="h-8 w-full justify-start text-xs" onClick={() => setPriceRange([0, 10000])}>
-              Under NGN 10,000
+              {`Under ${formatPrice(10000)}`}
             </Button>
             <Button variant="ghost" className="h-8 w-full justify-start text-xs" onClick={() => setPriceRange([10000, 25000])}>
-              NGN 10,000 - NGN 25,000
+              {`${formatPrice(10000)} - ${formatPrice(25000)}`}
             </Button>
             <Button variant="ghost" className="h-8 w-full justify-start text-xs" onClick={() => setPriceRange([25000, 50000])}>
-              NGN 25,000 - NGN 50,000
+              {`${formatPrice(25000)} - ${formatPrice(50000)}`}
             </Button>
           </div>
         </div>
@@ -215,7 +223,7 @@ export default function Women() {
               <Button size="sm" variant="outline" className="rounded-full px-3 text-xs" onClick={() => applyQuickPreset('best')}>Best Sellers</Button>
               <Button size="sm" variant="outline" className="rounded-full px-3 text-xs" onClick={() => applyQuickPreset('new')}>Just In</Button>
               <Button size="sm" variant="outline" className="rounded-full px-3 text-xs" onClick={() => applyQuickPreset('dresses')}>Dresses</Button>
-              <Button size="sm" variant="outline" className="rounded-full px-3 text-xs" onClick={() => applyQuickPreset('under-25')}>Under NGN 25k</Button>
+              <Button size="sm" variant="outline" className="rounded-full px-3 text-xs" onClick={() => applyQuickPreset('under-25')}>{`Under ${formatPrice(25000)}`}</Button>
             </div>
           </div>
         </section>

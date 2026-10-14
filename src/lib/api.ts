@@ -122,7 +122,12 @@ function mapRow(row: ProductRow): Product {
   };
 }
 
-/** Static-demo fallback: synthesize the template's default bulk tier. */
+/**
+ * Static-demo fallback: synthesize the template's default bulk tier.
+ * Deliberate: bulk here is quantity-based for every shopper (not a
+ * role-gated club), so the demo honestly previews the real model —
+ * every product is bulkable at MOQ until the vendor sets custom tiers.
+ */
 function withDemoTier(p: Product): Product {
   if (p.tiers && p.tiers.length) return p;
   return {
@@ -188,7 +193,11 @@ export async function fetchProductDetail(slugOrId: string): Promise<ProductDetai
     const product = withDemoTier(mapRow({ ...remote.product, tiers: remote.tiers }));
     return { product, variants: remote.variants, tiers: remote.tiers.length ? remote.tiers : (product.tiers ?? []) };
   }
-  const found = (productsData as unknown as Product[]).find((p) => p.id === slugOrId);
+  // Static fallback mirrors the API: id first, slug second.
+  const key = slugOrId.toLowerCase();
+  const all = productsData as unknown as Array<Product & { slug?: string }>;
+  const found = all.find((p) => p.id === slugOrId)
+    ?? all.find((p) => p.id.toLowerCase() === key || (p.slug ?? '').toLowerCase() === key);
   if (!found) return null;
   const product = withDemoTier(found);
   const variants: ProductVariant[] = [];
@@ -216,8 +225,18 @@ export interface AuthUser {
 }
 
 export async function fetchMe(): Promise<AuthUser | null> {
-  const res = await apiGet<{ user: AuthUser | null }>("/auth/me");
-  return res?.user ?? null;
+  // 401 (logged out) resolves to null; anything else failing throws, so the
+  // UI can tell "signed out" apart from "backend unreachable".
+  let res: Response;
+  try {
+    res = await fetch(`${base}/auth/me`, { credentials: "include" });
+  } catch {
+    throw new ApiError(0, { error: "unreachable" });
+  }
+  if (res.status === 401) return null;
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, payload);
+  return (payload as { user: AuthUser | null }).user;
 }
 
 export interface RegisterInput {
@@ -290,6 +309,17 @@ export async function trackOrder(ref: string, phone: string): Promise<TrackedOrd
 
 export async function markOrderPaid(ref: string, phone: string): Promise<{ ok: boolean; payment: string }> {
   const res = await apiPost<{ ok: boolean; payment: string }>(`/orders/${encodeURIComponent(ref.trim().toUpperCase())}/mark-paid`, { phone: phone.trim() });
+  if (!res) throw new ApiError(0, { error: "unreachable" });
+  return res;
+}
+
+/**
+ * Start a Bachs online payment for an unpaid order. Returns the hosted
+ * checkout URL to redirect to. Throws 501 when the store hasn't enabled
+ * online payment (pay-at-pickup stays available).
+ */
+export async function createOrderPayment(ref: string, phone: string): Promise<{ url: string; checkoutId: string }> {
+  const res = await apiPost<{ url: string; checkoutId: string }>(`/orders/${encodeURIComponent(ref.trim().toUpperCase())}/pay`, { phone: phone.trim() });
   if (!res) throw new ApiError(0, { error: "unreachable" });
   return res;
 }

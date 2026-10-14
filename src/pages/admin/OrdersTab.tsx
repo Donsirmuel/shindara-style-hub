@@ -105,12 +105,16 @@ export function OrdersTab() {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+  const invalidate = (id?: string) => {
+    queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+    // The expanded detail row caches under ['admin-order', id].
+    if (id) queryClient.invalidateQueries({ queryKey: ['admin-order', id] });
+  };
 
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: OrderStatus }) => adminSetOrderStatus(id, status),
-    onSuccess: () => {
-      invalidate();
+    onSuccess: (_data, vars) => {
+      invalidate(vars.id);
       toast.success('Order updated');
     },
     onError: () => toast.error('Could not update order'),
@@ -118,8 +122,8 @@ export function OrdersTab() {
 
   const setPayment = useMutation({
     mutationFn: ({ id, payment }: { id: string; payment: OrderPayment }) => adminSetOrderPayment(id, payment),
-    onSuccess: () => {
-      invalidate();
+    onSuccess: (_data, vars) => {
+      invalidate(vars.id);
       toast.success('Payment updated');
     },
     onError: () => toast.error('Could not update payment'),

@@ -27,32 +27,42 @@ const emptyForm: AdminProductInput = {
   images: [], featured: false, inStock: true,
 };
 
-function ImagePicker({ images, onChange }: { images: string[]; onChange: (urls: string[]) => void }) {
-  const [uploading, setUploading] = useState(false);
-  const upload = async (file: File) => {
-    setUploading(true);
-    try {
-      const url = await adminUploadImage(file);
-      onChange([...images, url]);
-      toast.success('Image uploaded');
-    } catch {
-      toast.error('Upload failed (jpg/png/webp, max 5MB)');
-    } finally {
-      setUploading(false);
-    }
-  };
+interface PendingPhoto {
+  file: File;
+  preview: string;
+}
+
+/**
+ * New photos preview instantly from memory and only upload when the vendor
+ * hits Save — closing the dialog abandons them, so no orphan uploads pile
+ * up on the VPS.
+ */
+function ImagePicker({
+  images, pending, onChangeUrls, onAddFiles, onRemovePending,
+}: {
+  images: string[];
+  pending: PendingPhoto[];
+  onChangeUrls: (urls: string[]) => void;
+  onAddFiles: (files: File[]) => void;
+  onRemovePending: (preview: string) => void;
+}) {
   const move = (index: number, dir: -1 | 1) => {
     const next = [...images];
     const j = index + dir;
     if (j < 0 || j >= next.length) return;
     [next[index], next[j]] = [next[j], next[index]];
-    onChange(next);
+    onChangeUrls(next);
+  };
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = [...(e.target.files ?? [])].filter((f) => f.type.startsWith('image/')).slice(0, 8 - images.length - pending.length);
+    if (files.length) onAddFiles(files);
+    e.target.value = '';
   };
   return (
     <div>
-      <Label>Images ({images.length}) — first is the cover</Label>
-      <Input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ''; }} />
-      {!!images.length && (
+      <Label>Images ({images.length + pending.length}) — first is the cover</Label>
+      <Input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={pick} />
+      {(!!images.length || !!pending.length) && (
         <div className="mt-2 flex flex-wrap gap-2">
           {images.map((url, i) => (
             <div key={`${url}-${i}`} className="group relative">
@@ -62,7 +72,7 @@ function ImagePicker({ images, onChange }: { images: string[]; onChange: (urls: 
               )}
               <button
                 type="button"
-                onClick={() => onChange(images.filter((_, j) => j !== i))}
+                onClick={() => onChangeUrls(images.filter((_, j) => j !== i))}
                 className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-destructive text-[11px] font-bold text-destructive-foreground group-hover:flex"
                 title="Remove image"
               >
@@ -82,13 +92,27 @@ function ImagePicker({ images, onChange }: { images: string[]; onChange: (urls: 
               {i > 0 && (
                 <button
                   type="button"
-                  onClick={() => onChange([url, ...images.filter((_, j) => j !== i)])}
+                  onClick={() => onChangeUrls([url, ...images.filter((_, j) => j !== i)])}
                   className="absolute bottom-0.5 right-0.5 hidden rounded bg-black/70 px-1 text-[10px] font-semibold text-white group-hover:block"
                   title="Make cover photo"
                 >
                   cover
                 </button>
               )}
+            </div>
+          ))}
+          {pending.map((p) => (
+            <div key={p.preview} className="group relative">
+              <img src={p.preview} alt="New photo (not uploaded yet)" className="h-16 w-14 rounded-md object-cover opacity-80 ring-1 ring-dashed ring-accent" />
+              <span className="absolute left-0.5 top-0.5 rounded bg-black/70 px-1 text-[10px] font-bold text-white">NEW</span>
+              <button
+                type="button"
+                onClick={() => onRemovePending(p.preview)}
+                className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-destructive text-[11px] font-bold text-destructive-foreground group-hover:flex"
+                title="Discard photo"
+              >
+                ×
+              </button>
             </div>
           ))}
         </div>
@@ -98,10 +122,13 @@ function ImagePicker({ images, onChange }: { images: string[]; onChange: (urls: 
 }
 
 function ProductFields({
-  form, set,
+  form, set, pending, onAddFiles, onRemovePending,
 }: {
   form: AdminProductInput;
   set: (patch: Partial<AdminProductInput>) => void;
+  pending: PendingPhoto[];
+  onAddFiles: (files: File[]) => void;
+  onRemovePending: (preview: string) => void;
 }) {
   const { data: categories } = useCategories();
   return (
@@ -130,11 +157,17 @@ function ProductFields({
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div><Label>Price (₦)</Label><Input type="number" min={0} value={form.basePrice} onChange={(e) => set({ basePrice: Number(e.target.value) })} /></div>
-        <div><Label>Was price (₦, optional)</Label><Input type="number" min={0} value={form.originalPrice ?? ''} placeholder="—" onChange={(e) => set({ originalPrice: e.target.value ? Number(e.target.value) : null })} /></div>
+        <div><Label>Price ({site.currency})</Label><Input type="number" min={0} value={form.basePrice} onChange={(e) => set({ basePrice: Number(e.target.value) })} /></div>
+        <div><Label>Was price ({site.currency}, optional)</Label><Input type="number" min={0} value={form.originalPrice ?? ''} placeholder="—" onChange={(e) => set({ originalPrice: e.target.value ? Number(e.target.value) : null })} /></div>
       </div>
       <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => set({ description: e.target.value })} rows={3} /></div>
-      <ImagePicker images={form.images ?? []} onChange={(images) => set({ images })} />
+      <ImagePicker
+        images={form.images ?? []}
+        pending={pending}
+        onChangeUrls={(images) => set({ images })}
+        onAddFiles={onAddFiles}
+        onRemovePending={onRemovePending}
+      />
       <div className="flex flex-wrap gap-5">
         <div className="flex items-center gap-2">
           <Checkbox id="pf-featured" checked={!!form.featured} onCheckedChange={(v) => set({ featured: v === true })} />
@@ -153,6 +186,7 @@ function ProductFields({
 function ProductDialog({ product, onSaved }: { product?: Product; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<AdminProductInput>(emptyForm);
+  const [pending, setPending] = useState<PendingPhoto[]>([]);
   const set = (patch: Partial<AdminProductInput>) => setForm((f) => ({ ...f, ...patch }));
   const editing = !!product;
 
@@ -172,19 +206,38 @@ function ProductDialog({ product, onSaved }: { product?: Product; onSaved: () =>
     } else if (open) {
       setForm(emptyForm);
     }
+    // Fresh pending tray every open; previews are revoked below on close.
+    setPending([]);
   }, [open, product]);
+
+  useEffect(() => {
+    if (!open) pending.forEach((p) => URL.revokeObjectURL(p.preview));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open ]);
 
   const save = useMutation({
     mutationFn: async () => {
-      if (editing) await adminUpdateProduct(product!.id, form);
-      else await adminCreateProduct(form);
+      // Upload first so a failed upload never saves a product with dead URLs.
+      let images = form.images ?? [];
+      if (pending.length) {
+        const uploaded: string[] = [];
+        for (const p of pending) {
+          uploaded.push(await adminUploadImage(p.file));
+        }
+        images = [...images, ...uploaded];
+      }
+      const payload = { ...form, images };
+      if (editing) await adminUpdateProduct(product!.id, payload);
+      else await adminCreateProduct(payload);
     },
     onSuccess: () => {
-      toast.success(editing ? 'Product updated' : 'Product created — now set its sizes and bulk tiers below');
+      toast.success(editing ? 'Product updated' : 'Product created with a default variant — set sizes, stock and tiers in Edit');
       if (!editing) setOpen(false);
       onSaved();
     },
-    onError: () => toast.error('Could not save — check the fields'),
+    onError: (e: unknown) => {
+      toast.error(e instanceof ApiError ? 'Upload failed (jpg/png/webp, max 5MB) — fix the photos and retry.' : 'Could not save — check the fields');
+    },
   });
 
   return (
@@ -199,13 +252,23 @@ function ProductDialog({ product, onSaved }: { product?: Product; onSaved: () =>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle>{editing ? `Edit — ${product!.name}` : 'New product'}</DialogTitle></DialogHeader>
         <div className="space-y-5">
-          <ProductFields form={form} set={set} />
+          <ProductFields
+            form={form}
+            set={set}
+            pending={pending}
+            onAddFiles={(files) => setPending((prev) => [...prev, ...files.map((file) => ({ file, preview: URL.createObjectURL(file) }))])}
+            onRemovePending={(preview) => setPending((prev) => {
+              const target = prev.find((p) => p.preview === preview);
+              if (target) URL.revokeObjectURL(target.preview);
+              return prev.filter((p) => p.preview !== preview);
+            })}
+          />
           <Button
             className="w-full"
             disabled={!form.name || !form.categoryId || !form.basePrice || save.isPending}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Saving…' : editing ? 'Save changes' : 'Create product'}
+            {save.isPending ? (pending.length ? `Uploading ${pending.length} photo${pending.length > 1 ? 's' : ''}…` : 'Saving…') : editing ? 'Save changes' : 'Create product'}
           </Button>
           {editing && (
             <div className="space-y-5 border-t border-border/80 pt-5">
@@ -214,7 +277,7 @@ function ProductDialog({ product, onSaved }: { product?: Product; onSaved: () =>
             </div>
           )}
           {!editing && (
-            <p className="text-xs text-muted-foreground">Sizes/colors become variants automatically at 50 stock each; adjust tiers after creating.</p>
+            <p className="text-xs text-muted-foreground">Creating adds one placeholder size at 0 stock — open Edit afterwards to add real sizes, stock and bulk tiers.</p>
           )}
         </div>
       </DialogContent>
@@ -304,22 +367,55 @@ function VariantsManager({ productId }: { productId: string }) {
 }
 
 function TiersEditor({ productId, basePrice, initialTiers, onSaved }: { productId: string; basePrice: number; initialTiers: Product['tiers']; onSaved: () => void }) {
+  const queryClient = useQueryClient();
   const [rows, setRows] = useState(
     (initialTiers ?? []).map((t) => ({ minQty: String(t.minQty), price: String(t.price) })),
   );
+  const [error, setError] = useState<string | null>(null);
+
+  const validate = (input: Array<{ minQty: string; price: string }>): Array<{ minQty: number; price: number }> | null => {
+    const parsed = input.map((r) => ({ minQty: Number(r.minQty), price: Number(r.price) }));
+    if (parsed.some((r) => !Number.isInteger(r.minQty) || r.minQty < 2)) {
+      setError('Every tier needs a whole minimum quantity of 2 or more.');
+      return null;
+    }
+    if (parsed.some((r) => !Number.isFinite(r.price) || r.price <= 0)) {
+      setError('Every tier needs a price above ₦0.');
+      return null;
+    }
+    // A "bulk discount" above the retail price is a surcharge — reject it.
+    const overpriced = parsed.find((r) => r.price >= basePrice);
+    if (overpriced) {
+      setError(`Bulk must beat retail (${formatPrice(basePrice)}): ${formatPrice(overpriced.price)} at ${overpriced.minQty}+ doesn't.`);
+      return null;
+    }
+    const seen = new Set<number>();
+    for (const r of parsed) {
+      if (seen.has(r.minQty)) {
+        setError(`Two tiers start at ${r.minQty} pcs — keep one.`);
+        return null;
+      }
+      seen.add(r.minQty);
+    }
+    setError(null);
+    return parsed;
+  };
+
   const save = useMutation({
-    mutationFn: () =>
-      adminSetTiers(
-        productId,
-        rows
-          .map((r) => ({ minQty: Number(r.minQty), price: Number(r.price) }))
-          .filter((r) => r.minQty > 1 && r.price > 0),
-      ),
+    mutationFn: () => {
+      const valid = validate(rows);
+      if (!valid) throw new Error('validation');
+      return adminSetTiers(productId, valid);
+    },
     onSuccess: () => {
       toast.success('Bulk tiers saved');
+      queryClient.invalidateQueries({ queryKey: ['product', productId] });
       onSaved();
     },
-    onError: () => toast.error('Could not save tiers'),
+    onError: (e: unknown) => {
+      if (e instanceof Error && e.message === 'validation') return; // message already shown inline
+      toast.error('Could not save tiers');
+    },
   });
 
   return (
@@ -344,6 +440,7 @@ function TiersEditor({ productId, basePrice, initialTiers, onSaved }: { productI
         </Button>
         <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>Save tiers</Button>
       </div>
+      {error && <p className="text-xs font-medium text-destructive">{error}</p>}
     </div>
   );
 }
@@ -353,11 +450,15 @@ export function ProductsTab() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['admin-products'], queryFn: adminListProducts });
   const [search, setSearch] = useState('');
   const [restockOnly, setRestockOnly] = useState(false);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    // Shop grids cache the same rows under ['products', ...].
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+  };
   const duplicate = useMutation({
     mutationFn: (id: string) => adminDuplicateProduct(id),
     onSuccess: () => {
-      toast.success('Duplicated as a hidden draft — edit, restock, then unhide it.');
+      toast.success('Duplicated as a hidden draft — search "(Copy)" to review, restock, then unhide it.');
       refresh();
     },
     onError: () => toast.error('Could not duplicate product'),

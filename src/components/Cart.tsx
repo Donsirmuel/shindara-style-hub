@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Minus, Plus, X } from 'lucide-react';
+import { useQueries } from '@tanstack/react-query';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { CartItem } from '@/lib/types';
-import { formatPrice } from '@/lib/format';
+import { cartSubtotal, formatPrice, lineTotal, tierPriceFor } from '@/lib/format';
+import { fetchProductDetail } from '@/lib/api';
 import { resolveImageUrl } from '@/utils/imageResolver';
 
 interface CartProps {
@@ -17,7 +19,23 @@ interface CartProps {
 }
 
 export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem }: CartProps) {
-  const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const subtotal = cartSubtotal(items);
+
+  // Per-variant stock for honest quantity caps. Only fetched while the drawer
+  // is open; checkout re-validates server-side regardless.
+  const stockQueries = useQueries({
+    queries: (open ? items : []).map((item) => ({
+      queryKey: ['product', item.product.id],
+      queryFn: () => fetchProductDetail(item.product.id),
+      staleTime: 60_000,
+    })),
+  });
+  const stockFor = (index: number): number | null => {
+    const item = items[index];
+    const detail = stockQueries[index]?.data;
+    if (!item || !detail) return null;
+    return detail.variants.find((v) => v.size === item.size && v.color === item.color)?.stock ?? null;
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -37,8 +55,12 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
           <>
             <ScrollArea className="flex-1 pr-1">
               <div className="space-y-4 py-2">
-                {items.map((item) => {
+                {items.map((item, index) => {
                   const imageSrc = resolveImageUrl(item.product.images?.[0]);
+                  const stock = stockFor(index);
+                  const capped = stock != null && item.quantity >= stock;
+                  const unit = tierPriceFor(item.quantity, item.product.price, item.product.tiers ?? []);
+                  const bulk = unit < item.product.price;
                   return (
                     <div key={`${item.product.id}-${item.size}-${item.color}`} className="flex gap-3 sm:gap-4">
                       <div className="relative h-20 w-16 overflow-hidden rounded-md bg-secondary sm:h-24 sm:w-20">
@@ -62,6 +84,16 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
                             <p className="text-xs text-muted-foreground mt-1">
                               Size: {item.size} - {item.color}
                             </p>
+                            {stock != null && stock <= 5 && (
+                              <p className={`mt-0.5 text-xs font-semibold ${stock === 0 ? 'text-destructive' : 'text-amber-600'}`}>
+                                {stock === 0 ? 'Out of stock in this variant' : `Only ${stock} left`}
+                              </p>
+                            )}
+                            {bulk && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Bulk price {formatPrice(unit)} each applied
+                              </p>
+                            )}
                           </div>
                           <Button
                             variant="ghost"
@@ -90,13 +122,15 @@ export function Cart({ open, onOpenChange, items, onUpdateQuantity, onRemoveItem
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
+                              disabled={capped}
+                              title={capped ? 'No more stock in this variant' : 'Increase quantity'}
                               onClick={() => onUpdateQuantity(item.product.id, item.size, item.color, item.quantity + 1)}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
                           </div>
                           <span className="font-semibold text-sm">
-                            {formatPrice(item.product.price * item.quantity)}
+                            {formatPrice(lineTotal(item))}
                           </span>
                         </div>
                       </div>

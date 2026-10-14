@@ -86,7 +86,14 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
   const currentImage = resolvedImages[selectedImage] ?? '';
   const unitPrice = tierPriceFor(quantity, product.price, tiers);
   const bulkActive = unitPrice < product.price;
-  const nextTier = [...tiers].sort((a, b) => a.minQty - b.minQty).find((t) => t.minQty > quantity) ?? null;
+  const sortedTiers = [...tiers].sort((a, b) => a.minQty - b.minQty);
+  const nextTier = sortedTiers.find((t) => t.minQty > quantity) ?? null;
+  // Only the tier actually setting the price gets the badge — with several
+  // qualified tiers, cheaper-higher ones would otherwise all shout "yours".
+  const pricedTier = bulkActive ? sortedTiers.filter((t) => quantity >= t.minQty && t.price === unitPrice).pop() ?? null : null;
+  // Before a variant is picked, fall back to catalog rollups so an
+  // all-sold-out product never claims "In Stock".
+  const overallOut = (product.stockTotal ?? Infinity) === 0 || (!product.inStock && selectedStock == null);
 
   const handleAddToCart = () => {
     if (!selectedSize || !selectedColor) {
@@ -168,12 +175,16 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
                   </span>
                 </div>
               ) : null}
-              <Badge variant={product.inStock ? 'outline' : 'secondary'}>
+              <Badge variant={product.inStock && !overallOut ? 'outline' : 'secondary'}>
                 {selectedStock != null
                   ? selectedStock > 0
                     ? `${selectedStock} left in ${selectedSize} / ${selectedColor}`
                     : 'Out of stock in this variant'
-                  : product.inStock ? 'In Stock' : 'Out of Stock'}
+                  : overallOut
+                    ? 'Out of Stock'
+                    : (product.minStock != null && product.minStock <= site.inventory.lowStockAt)
+                      ? `Only ${product.minStock} left in some sizes`
+                      : 'In Stock'}
               </Badge>
             </div>
 
@@ -196,16 +207,17 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
                 </p>
                 <div className="mt-3 space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
-                    <span>1 – {tiers[0].minQty - 1} pcs</span>
+                    <span>1 – {(sortedTiers[0]?.minQty ?? 2) - 1} pcs</span>
                     <span className="font-semibold">{formatPrice(product.price)} each</span>
                   </div>
-                  {[...tiers].sort((a, b) => a.minQty - b.minQty).map((tier) => {
+                  {sortedTiers.map((tier) => {
                     const active = quantity >= tier.minQty;
+                    const isPriced = pricedTier?.minQty === tier.minQty;
                     return (
                       <div key={tier.minQty} className={`flex items-center justify-between text-sm ${active ? 'font-semibold text-foreground' : 'text-foreground/75'}`}>
                         <span>
                           {tier.minQty}+ pcs
-                          {active && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-[11px] text-accent-foreground">yours</span>}
+                          {isPriced && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-[11px] text-accent-foreground">yours</span>}
                         </span>
                         <span className="font-semibold">{formatPrice(tier.price)} each</span>
                       </div>
@@ -270,8 +282,17 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
                 </div>
               </div>
 
-              <Button size="lg" className="h-11 w-full rounded-full" onClick={handleAddToCart} disabled={!product.inStock || selectedStock === 0}>
-                {!product.inStock || selectedStock === 0 ? 'Out of Stock' : bulkActive ? `Add to Cart — ${formatPrice(unitPrice * quantity)} total` : 'Add to Cart'}
+              <Button
+                size="lg"
+                className="h-11 w-full rounded-full"
+                onClick={handleAddToCart}
+                disabled={!product.inStock || overallOut || selectedStock === 0 || (selectedStock != null && quantity > selectedStock)}
+              >
+                {!product.inStock || overallOut || selectedStock === 0
+                  ? 'Out of Stock'
+                  : selectedStock != null && quantity > selectedStock
+                    ? `Only ${selectedStock} available — lower quantity`
+                    : bulkActive ? `Add to Cart — ${formatPrice(unitPrice * quantity)} total` : 'Add to Cart'}
               </Button>
             </div>
           </section>

@@ -7,10 +7,43 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { CartItem, CheckoutFormData } from '@/lib/types';
-import { formatPrice, tierPriceFor, whatsappOrderLink } from '@/lib/format';
-import { ApiError, createOrder, markOrderPaid, type PlacedOrder } from '@/lib/api';
+import { formatPrice, cartSubtotal, lineTotal, whatsappOrderLink } from '@/lib/format';
+import { ApiError, createOrder, createOrderPayment, markOrderPaid, type PlacedOrder } from '@/lib/api';
 import { site } from '@/site.config';
 import { resolveImageUrl } from '@/utils/imageResolver';
+
+/**
+ * Online payment for a just-placed unpaid order. Redirects to Bachs;
+ * unconfigured stores answer 501 and the transfer/cash path stays.
+ */
+function PayNowCta({ refId, phone, total }: { refId: string; phone: string; total: number }) {
+  const [busy, setBusy] = useState(false);
+  // Demo refs (offline mode) have no backend order to pay for.
+  if (refId.startsWith('DEMO-')) return null;
+  return (
+    <Button
+      className="h-11 w-full rounded-full"
+      disabled={busy || !phone}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const { url } = await createOrderPayment(refId, phone);
+          window.location.href = url;
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 501) {
+            toast.info('Online payment is not enabled on this store yet — pay at pickup or by transfer.');
+          } else {
+            toast.error('Could not start online payment. Try again or pay at pickup.');
+          }
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {busy ? 'Opening secure payment…' : `Pay ${formatPrice(total)} now`}
+    </Button>
+  );
+}
 
 function PaidCta({ refId, phone }: { refId: string; phone: string }) {
   const [done, setDone] = useState(false);
@@ -61,10 +94,8 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
   const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
   const [fulfillment, setFulfillment] = useState<'pickup' | 'delivery'>('delivery');
 
-  // Bulk-aware line totals (same tier math as ProductDetail).
-  const lineUnit = (item: CartItem) => tierPriceFor(item.quantity, item.product.price, item.product.tiers ?? []);
-  const subtotal = cartItems.reduce((sum, item) => sum + lineUnit(item) * item.quantity, 0);
-  const shipping = fulfillment === 'pickup' ? 0 : subtotal >= site.shipping.freeAbove ? 0 : site.shipping.baseFee;
+  // Bulk-aware line totals — same helper as the cart and the server math.
+  const subtotal = cartSubtotal(cartItems);  const shipping = fulfillment === 'pickup' ? 0 : subtotal >= site.shipping.freeAbove ? 0 : site.shipping.baseFee;
   const total = subtotal + shipping;
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -86,10 +117,12 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
         fulfillment,
       );
       if (!order) {
-        // Static demo (no backend): keep the old mock flow.
-        toast.success('Order placed successfully.');
+        // Static demo (no backend): same success screen with a local ref so
+        // the flow (ref → WhatsApp → track) can be exercised offline.
+        const demoId = `DEMO-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+        setPlacedOrder({ id: demoId, subtotal, shipping, total, status: 'pending', payment: 'unpaid', emailSent: false });
         onClearCart();
-        setTimeout(() => navigate('/'), 1800);
+        toast.success(`Demo order ${demoId} noted (connect the backend to save orders).`);
         return;
       }
       setPlacedOrder(order);
@@ -128,7 +161,10 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
           )}
           <div className="mt-6 space-y-2">
             {placedOrder.payment === 'unpaid' && (
-              <PaidCta refId={placedOrder.id} phone={formData.phone} />
+              <>
+                <PayNowCta refId={placedOrder.id} phone={formData.phone} total={placedOrder.total} />
+                <PaidCta refId={placedOrder.id} phone={formData.phone} />
+              </>
             )}
             <Button className="h-11 w-full rounded-full" asChild>
               <a href={whatsappOrderLink(placedOrder.id, placedOrder.total)} target="_blank" rel="noreferrer">
@@ -204,11 +240,10 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Email (for your receipt)</Label>
                   <Input
                     id="email"
                     type="email"
-                    required
                     placeholder="you@example.com"
                     value={formData.email}
                     onChange={(event) => setFormData({ ...formData, email: event.target.value })}
@@ -243,17 +278,17 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="phone">Phone Number *</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    required
-                    placeholder="+234 800 000 0000"
-                    value={formData.phone}
-                    onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="phone">Phone Number *</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      required
+                      placeholder={site.contact.phone}
+                      value={formData.phone}
+                      onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                    />
+                  </div>
 
                 <div>
                   <Label htmlFor="address">
@@ -325,7 +360,7 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
                           <p className="line-clamp-2 text-sm font-medium">{item.product.name}</p>
                           <p className="text-xs text-muted-foreground">{item.size} - {item.color}</p>
                         </div>
-                        <p className="text-sm font-semibold">{formatPrice(item.product.price * item.quantity)}</p>
+                        <p className="text-sm font-semibold">{formatPrice(lineTotal(item))}</p>
                       </div>
                     );
                   })}
@@ -339,7 +374,7 @@ export default function Checkout({ cartItems, onClearCart }: CheckoutProps) {
                     <span className="font-semibold">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}</span>
+                    <span className="text-muted-foreground">{fulfillment === 'pickup' ? 'Pickup' : 'Delivery (est.)'}</span>
                     <span className="font-semibold">{shipping === 0 ? 'Free' : formatPrice(shipping)}</span>
                   </div>
                   <Separator />

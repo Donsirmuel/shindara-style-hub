@@ -1,4 +1,5 @@
 import { site } from "@/site.config";
+import type { CartItem } from "@/lib/types";
 
 export function formatPrice(naira: number): string {
   try {
@@ -12,13 +13,26 @@ export function formatPrice(naira: number): string {
   }
 }
 
-/** Cheapest unit price for a quantity given tiers [{minQty, price}]. */
+/**
+ * Cheapest unit price for a quantity given tiers [{minQty, price}].
+ * Matches the server exactly (cheapest qualified tier wins, order-independent),
+ * so the price shown here is the price charged — never a higher "last tier".
+ */
 export function tierPriceFor(qty: number, basePrice: number, tiers: Array<{ minQty: number; price: number }>): number {
   let best = basePrice;
-  for (const t of [...tiers].sort((a, b) => a.minQty - b.minQty)) {
-    if (qty >= t.minQty) best = t.price;
+  for (const t of tiers) {
+    if (qty >= t.minQty && t.price < best) best = t.price;
   }
   return best;
+}
+
+/** Bulk-aware line total. Cart, checkout and detail must all use this. */
+export function lineTotal(item: CartItem): number {
+  return tierPriceFor(item.quantity, item.product.price, item.product.tiers ?? []) * item.quantity;
+}
+
+export function cartSubtotal(items: CartItem[]): number {
+  return items.reduce((sum, item) => sum + lineTotal(item), 0);
 }
 
 export function whatsappOrderLink(orderRef: string, total: number): string {

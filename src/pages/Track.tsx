@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ApiError, markOrderPaid, trackOrder, type TrackedOrder } from '@/lib/api';
+import { ApiError, createOrderPayment, markOrderPaid, trackOrder, type TrackedOrder } from '@/lib/api';
 import { formatPrice } from '@/lib/format';
 import { site } from '@/site.config';
 
@@ -19,7 +20,7 @@ const STAGE_LABEL: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
-export function PaymentCta({ order, phone, onPaid }: { order: TrackedOrder; phone: string; onPaid: () => void }) {
+export function PaymentCta({ order, phone, onPaid }: { order: TrackedOrder; phone: string; onPaid: (payment: TrackedOrder['payment']) => void }) {
   const [busy, setBusy] = useState(false);
   if (order.payment === 'paid') {
     return <p className="text-sm font-semibold text-green-700">Paid — thank you!</p>;
@@ -35,9 +36,9 @@ export function PaymentCta({ order, phone, onPaid }: { order: TrackedOrder; phon
       onClick={async () => {
         setBusy(true);
         try {
-          await markOrderPaid(order.ref, phone);
+          const res = await markOrderPaid(order.ref, phone);
+          onPaid(res.payment as TrackedOrder['payment']);
           toast.success('Noted! Show your transfer receipt at the counter.');
-          onPaid();
         } catch (e) {
           toast.error(e instanceof ApiError && e.status === 403 ? 'Phone number does not match this order.' : 'Could not update. Try again.');
         } finally {
@@ -51,10 +52,15 @@ export function PaymentCta({ order, phone, onPaid }: { order: TrackedOrder; phon
 }
 
 export default function Track() {
-  const [ref, setRef] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [ref, setRef] = useState(() => searchParams.get('ref') ?? '');
   const [phone, setPhone] = useState('');
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [looking, setLooking] = useState(false);
+  const [paying, setPaying] = useState(false);
+  // Bachs redirects back here (?ref=..&paid=1) after a completed checkout.
+  // The webhook is the source of truth, but celebrate loudly when it landed.
+  const justPaid = searchParams.get('paid') === '1' && order?.payment === 'paid';
 
   const lookup = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -64,12 +70,36 @@ export default function Track() {
     }
     setLooking(true);
     try {
-      setOrder(await trackOrder(ref, phone));
+      const found = await trackOrder(ref, phone);
+      setOrder(found);
+      // Keep the ref in the URL so Bachs redirects land prefilled.
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('ref', found.ref);
+        return next;
+      }, { replace: true });
     } catch (e) {
       setOrder(null);
       toast.error(e instanceof ApiError && e.status === 404 ? 'No order matches that ref + phone.' : 'Could not reach the server.');
     } finally {
       setLooking(false);
+    }
+  };
+
+  const payNow = async () => {
+    if (!order || !phone.trim()) return;
+    setPaying(true);
+    try {
+      const { url } = await createOrderPayment(order.ref, phone);
+      window.location.href = url;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 501) {
+        toast.info('Online payment is not enabled on this store yet — pay at pickup or by transfer.');
+      } else {
+        toast.error('Could not start online payment. Try again or pay at pickup.');
+      }
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -140,7 +170,17 @@ export default function Track() {
               {order.fulfillment === 'pickup' && (
                 <p className="text-sm text-muted-foreground">Pick up at {site.pickup.address}. Show this ref at the counter.</p>
               )}
-              <PaymentCta order={order} phone={phone} onPaid={() => lookup()} />
+              {justPaid && (
+                <p className="rounded-xl bg-green-50 p-3 text-sm font-semibold text-green-700">
+                  Payment received — your order is confirmed. Show this ref at the counter.
+                </p>
+              )}
+              {order.payment === 'unpaid' && order.status !== 'cancelled' && (
+                <Button className="h-10 w-full rounded-full" disabled={paying} onClick={payNow}>
+                  {paying ? 'Opening secure payment…' : `Pay ${formatPrice(order.total)} now`}
+                </Button>
+              )}
+              <PaymentCta order={order} phone={phone} onPaid={(payment) => setOrder((prev) => (prev ? { ...prev, payment } : prev))} />
             </CardContent>
           </Card>
         )}

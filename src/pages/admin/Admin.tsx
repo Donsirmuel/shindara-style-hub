@@ -46,11 +46,23 @@ function StatsStrip() {
 
 export default function Admin() {
   const navigate = useNavigate();
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading, backendDown, logout } = useAuth();
   const [tab, setTab] = useState('orders');
 
   if (isLoading) {
     return <p className="py-20 text-center text-sm text-muted-foreground">Checking access…</p>;
+  }
+
+  if (backendDown) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="rounded-2xl border border-border/80 bg-card px-8 py-10 text-center">
+          <h1 className="text-2xl font-bold">Can't reach the server</h1>
+          <p className="mt-2 text-sm text-muted-foreground">The API isn't responding. Start it with <span className="font-mono">npm run dev:full</span>, then retry.</p>
+          <Button className="mt-5" variant="outline" onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
@@ -59,7 +71,7 @@ export default function Admin() {
         <div className="rounded-2xl border border-border/80 bg-card px-8 py-10 text-center">
           <h1 className="text-2xl font-bold">Admins only</h1>
           <p className="mt-2 text-sm text-muted-foreground">Sign in with an admin account to manage the store.</p>
-          <Button className="mt-5" onClick={() => navigate('/login')}>Sign In</Button>
+          <Button className="mt-5" onClick={() => navigate('/login?next=/admin')}>Sign In</Button>
         </div>
       </div>
     );

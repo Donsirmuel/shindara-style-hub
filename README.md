@@ -46,7 +46,7 @@ npm run dev:full
 
 1. Customer reserves items (pickup or delivery) and receives a reference code.
 2. The ref is displayed for screenshot, emailed with the full receipt, and works on `/track` with the order phone number.
-3. Payment happens by bank transfer (customer flags it, vendor confirms) or at pickup/delivery.
+3. Payment happens by bank transfer (customer flags it, vendor confirms), at pickup/delivery — or online via Bachs when enabled (`Pay now`, confirmed by webhook).
 4. The vendor packs against the ref at the counter and advances the order to completion.
 
 ## Tech stack
@@ -66,7 +66,24 @@ npm run dev:full
 
 Per-client branding lives in one file — **`src/site.config.ts`**: brand name, currency, contact/WhatsApp, shipping fees, pickup address, bulk MOQ, low-stock threshold.
 
-Secrets live in **`.env`** (see `.env.example`): `JWT_SECRET`, admin bootstrap credentials, store name, order prefix, and the optional `DATABASE_URL` and `SMTP_*` settings.
+Secrets live in **`.env`** (see `.env.example`): `JWT_SECRET`, `COOKIE_NAME`, admin bootstrap credentials, store name, order prefix, and the optional `DATABASE_URL` and `SMTP_*` settings.
+
+## Delivering a new client (fork sequence)
+
+Each brand gets its own fork, VPS and database. The owner signs in through a private `/login` link — shoppers never need accounts.
+
+```sh
+# 1. Fork the repo, then make it theirs:
+#    - src/site.config.ts → brand, shortName, brandSlug, story, contact, fees, pickup
+#    - src/data/products.json + categories.json → their catalog
+#    - .env → JWT_SECRET, COOKIE_NAME, ADMIN_EMAIL, ADMIN_PASSWORD,
+#             STORE_NAME, ORDER_PREFIX, PICKUP_ADDRESS (+ SMTP_*, DATABASE_URL as needed)
+npm run db:seed
+npm run fork:check    # fails loudly on any leftover of the previous brand
+npm run dev:full      # verify, then deploy per Deployment below
+```
+
+`npm run fork:check -- --from=OldBrand` scans for a different previous brand. Page titles and link previews regenerate from the config on every dev/build, so they follow the fork automatically. Replace the demo admin credentials before handover.
 
 ## Deployment
 
@@ -95,6 +112,7 @@ npm run db:seed
 |---|---|
 | `GET /api/products`, `GET /api/products/:slug` | Catalog list (filterable) and detail with variants + bulk tiers |
 | `POST /api/orders`, `GET /api/orders/:id`, `POST /api/orders/:id/mark-paid` | Checkout, order lookup, transfer flagging |
+| `POST /api/orders/:id/pay`, `POST /api/webhooks/bachs` | Bachs online payment + signature-verified webhook (paid on `collection.succeeded`) |
 | `GET /api/track/:ref?phone=` | Public order tracking |
 | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me` | Retail/wholesaler signup, login, session |
 | `GET/PATCH /api/admin/orders[/:id]` | Order management, status and payment transitions |
@@ -133,8 +151,8 @@ server/
 ## Roadmap
 
 - `DATABASE_URL` acceptance run against live Postgres on the VPS (code paths verified, awaiting a Docker host)
+- Bachs sandbox end-to-end (keys + `collection.succeeded` replay) before any client's launch
 - CSV catalog import for large seasonal drops
-- CI workflow (lint + typecheck + build), license file, issue templates
 
 ## License
 

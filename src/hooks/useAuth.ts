@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchMe, login as apiLogin, logout as apiLogout, register as apiRegister, type AuthUser, type RegisterInput } from "@/lib/api";
+import { fetchMe, login as apiLogin, logout as apiLogout, type AuthUser } from "@/lib/api";
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -20,11 +20,6 @@ export function useAuth() {
     onSuccess: invalidate,
   });
 
-  const registerMutation = useMutation({
-    mutationFn: (input: RegisterInput) => apiRegister(input),
-    onSuccess: invalidate,
-  });
-
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await apiLogout();
@@ -40,7 +35,6 @@ export function useAuth() {
     isLoading: meQuery.isLoading,
     backendDown: meQuery.isError,
     login: loginMutation,
-    register: registerMutation,
     logout: logoutMutation,
   };
 }

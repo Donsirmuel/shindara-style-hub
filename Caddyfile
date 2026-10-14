@@ -1,0 +1,14 @@
+# Caddy on the VPS: `caddy reverse-proxy --from shop.example.com --to 127.0.0.1:3000`
+# Or use this file with `caddy run --config Caddyfile --adapter caddyfile`
+{
+  auto_https on
+}
+
+{$DOMAIN:shop.example.com} {
+  reverse_proxy 127.0.0.1:3000
+  header {
+    X-Frame-Options DENY
+    X-Content-Type-Options nosniff
+    Referrer-Policy strict-origin-when-cross-origin
+  }
+}

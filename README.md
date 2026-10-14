@@ -1,121 +1,140 @@
 # Shindara Style Hub
 
-Modern e-commerce storefront for Shindara Fashion World.
+A full-stack commerce template for fashion vendors that sell **retail and wholesale** — built around how Nigerian boutiques actually operate: customers reserve online and pick up in store, pay by transfer or at the counter, and track orders with a short reference code.
 
-## Tech Stack
+Fork it, edit one config file, and deploy a working store for a new client.
 
-- React + TypeScript + Vite
-- Tailwind CSS + shadcn/ui
-- React Router
-- TanStack Query
+## What it does
 
-## Quick Start
+**Shoppers** can browse a gender-split catalog with search, filters and sorting, see automatic bulk discounts (e.g. 12+ pieces at a wholesale price), check out for pickup or delivery, and track orders by reference code — no account required.
 
-### Prerequisites
+**Vendors** get an admin dashboard to confirm and pack orders, manage products end-to-end (details, photos, sizes, stock, bulk tiers), approve wholesale accounts, and notify customers. Everything runs from a single $3/month VPS with no external services required.
 
-- Node.js 20+
-- npm
-
-### Install & Run (storefront only, static demo data)
+## Demo
 
 ```sh
 npm install
-npm run dev
-```
-
-App runs at `http://localhost:8080`.
-
-### Run with embedded backend (Fastify + PGlite Postgres, no external DB)
-
-```sh
 cp .env.example .env
 npm run db:seed
 npm run dev:full
 ```
 
-- Storefront: `http://localhost:8080` (Vite)
-- API: `http://localhost:3000/api/health`
-- Data persists in `./data/pgdata`, uploads in `./uploads`
+- Storefront: `http://localhost:8080`
+- Admin dashboard: `http://localhost:8080/admin` — sign in with `admin@shindara.local` / `admin123`
+- API health: `http://localhost:3000/api/health`
 
-### New client checklist
+`npm run dev` alone runs the storefront against built-in demo data (no backend needed).
 
-1. Fork repo, edit `src/site.config.ts` (brand, currency, WhatsApp, MOQ, fees, pickup address).
-2. Replace `src/data/*.json` or `npm run db:seed` after editing.
-3. Set `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `STORE_NAME`, `ORDER_PREFIX` in `.env`, `docker compose up --build -d` on VPS.
+## Features
 
-### Order emails (optional, recommended)
+### Storefront
+- Catalog with category, price and sort filters plus full-text search (debounced, server-side)
+- Product pages with variant-level stock, quantity-aware bulk pricing tables ("add 3 more to unlock ₦13,950 each")
+- Cart with local persistence; checkout for **pickup** (free) or **delivery** (configurable fee and free threshold)
+- Memorable order references (`SH-482913`) shown on screen, emailed as a receipt, and usable on the self-service tracking page with just ref + phone
+- Transfer-first customers can flag "I've sent the transfer"; vendors confirm on seeing the money
 
-Checkout sends the customer a receipt email through the vendor's own mailbox.
-Without these vars, checkout works — it just skips the email and says so honestly.
+### Vendor dashboard (`/admin`)
+- Order pipeline built for the counter: search by ref or phone → confirm → mark ready → mark collected/delivered, with pickup/delivery lanes and payment badges (`unpaid` / `paid? confirm` / `paid`)
+- Cancelling an unfulfilled order automatically returns its items to stock
+- Product management: create, edit, duplicate (as hidden draft), cover-photo picker, image reorder, per size/color stock controls with low-stock alerts
+- Category management with in-use protection; bulk-tier editor per product
+- Wholesale account approvals; one-click WhatsApp customer notification per order
+- Dashboard stats: orders awaiting confirmation, confirmed revenue, low-stock count
+
+## How an order flows
+
+1. Customer reserves items (pickup or delivery) and receives a reference code.
+2. The ref is displayed for screenshot, emailed with the full receipt, and works on `/track` with the order phone number.
+3. Payment happens by bank transfer (customer flags it, vendor confirms) or at pickup/delivery.
+4. The vendor packs against the ref at the counter and advances the order to completion.
+
+## Tech stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui | Fast static builds, accessible component primitives |
+| Data fetching | TanStack Query | Server cache with static-JSON fallback, so the demo works with no backend |
+| API | Fastify (Node 20) | Low memory footprint for a 1 vCPU / 2 GB VPS |
+| Database | PGlite (embedded Postgres), optional real Postgres via `DATABASE_URL` | Zero ops to start; same Drizzle schema and SQL either way, transactions kick in automatically on real Postgres |
+| Auth | JWT in httpOnly cookies (roles: retail, wholesaler, admin) | No session store to operate |
+| Email | Nodemailer via the vendor's own SMTP | No third-party account needed; skipped gracefully when unconfigured |
+| Images | Local disk with admin upload | No S3 bill; migratable later |
+| Deploy | Docker Compose + Caddy | One image per client, automatic HTTPS |
+
+## Configuration
+
+Per-client branding lives in one file — **`src/site.config.ts`**: brand name, currency, contact/WhatsApp, shipping fees, pickup address, bulk MOQ, low-stock threshold.
+
+Secrets live in **`.env`** (see `.env.example`): `JWT_SECRET`, admin bootstrap credentials, store name, order prefix, and the optional `DATABASE_URL` and `SMTP_*` settings.
+
+## Deployment
+
+One VPS per client (reference: 1 vCPU / 2 GB RAM / 40 GB SSD):
 
 ```sh
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=shop@example.com
-SMTP_PASS=<Gmail app password, not your login password>
-SMTP_FROM=Shindara Fashion World <shop@example.com>
+cp .env.example .env   # fill in secrets
+npm run build && npm run db:seed
+docker compose up --build -d
+caddy reverse-proxy --from shop.example.com --to 127.0.0.1:3000
 ```
 
-Gmail: enable 2-Step Verification → create an App Password → paste it as `SMTP_PASS`.
-
-## How orders work (reserve → pay → pick up)
-
-1. Customer reserves on the site (pickup or delivery), gets a memorable ref (`SH-482913`).
-2. Ref shows big on screen + email receipt + `/track` page (ref + phone, no account needed).
-3. Transfer-first customers tap "I've sent the transfer" → `paid_pending`; vendor confirms money → `paid`.
-4. Counter flow: search ref in Admin → Confirm → Ready (packed) → Completed (collected/delivered).
-5. Past ~50 orders/day: switch to real Postgres (below) — stock decrements become fully transactional.
-
-### Scaling to real Postgres (same VPS, one env var)
-
-The app starts on embedded PGlite (zero ops). When concurrent shoppers + staff arrive:
+Past ~50 orders/day, switch to real Postgres on the same machine:
 
 ```sh
 # in .env:
-PG_PASSWORD=a-long-random-password
-DATABASE_URL=postgres://shindara:a-long-random-password@db:5432/shindara
+PG_PASSWORD=<long random password>
+DATABASE_URL=postgres://shindara:<password>@db:5432/shindara
 docker compose --profile pg up --build -d
-npm run db:seed   # run once against the new DB to import catalog + admin
+npm run db:seed
 ```
 
-Same Drizzle schema and SQL either way; `supportsTransactions` flips order placement into a real transaction automatically. Moving to managed Postgres later = same `DATABASE_URL`, no code changes.
+## API overview
 
-## Scripts
+| Method & path | Description |
+|---|---|
+| `GET /api/products`, `GET /api/products/:slug` | Catalog list (filterable) and detail with variants + bulk tiers |
+| `POST /api/orders`, `GET /api/orders/:id`, `POST /api/orders/:id/mark-paid` | Checkout, order lookup, transfer flagging |
+| `GET /api/track/:ref?phone=` | Public order tracking |
+| `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me` | Retail/wholesaler signup, login, session |
+| `GET/PATCH /api/admin/orders[/:id]` | Order management, status and payment transitions |
+| `POST/PATCH /api/admin/products[/:id]`, `PUT .../tiers`, variant endpoints | Full product and stock management |
+| `POST /api/admin/uploads` | Local image upload (jpg/png/webp, 5 MB) |
 
-- `npm run dev` — Vite storefront only
-- `npm run dev:full` — storefront + embedded API together
-- `npm run db:seed` — import `src/data/*.json` into embedded Postgres
-- `npm run typecheck` — `tsc -b`
-- `npm run build` — production build (`dist/`, served by `server/` on VPS)
-
-## Project Structure
+## Project structure
 
 ```text
 src/
-  site.config.ts  Per-client brand/currency/bulk settings (edit this per fork)
-  components/   Reusable UI and feature components
-  pages/        Route-level pages
-  hooks/        Custom React hooks (useCart, useProducts)
-  data/         Seed JSON (imported by `npm run db:seed`)
-  lib/          Shared utilities (api client, currency format, types)
+  site.config.ts    Per-client brand, currency, fees and pickup settings
+  pages/            Home, Women, Men, Bulk, ProductDetail, Checkout, Track, Login, admin/
+  components/       Header, Cart, ProductCard, ConfirmButton, ui/ (shadcn)
+  hooks/            useProducts, useCart, useAuth
+  lib/              API client, currency formatter, shared types
+  data/             Seed catalog (imported by db:seed)
 server/
-  index.ts      Fastify API + serves dist/ + /uploads
-  db/           Drizzle schema + PGlite client + seed
-  routes/       /api/products, /api/categories, /api/health
+  index.ts          Fastify app: API routes + serves dist/ and /uploads
+  db/               Drizzle schema, shared DDL, PGlite/Postgres client, seed
+  routes/           products, auth, orders, admin
+  notify/           Order emails via vendor SMTP
 ```
 
-## Troubleshooting
+## Scripts
 
-Windows build issues: ensure Node 20+, delete `node_modules` and reinstall with npm.
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Storefront only (static demo data) |
+| `npm run dev:full` | Storefront + API together |
+| `npm run dev:api` | API only (port 3000) |
+| `npm run db:seed` | Import seed catalog and bootstrap admin into the database |
+| `npm run typecheck` | `tsc -b` |
+| `npm run lint` | ESLint |
+| `npm run build` | Production storefront build served by `server/` |
 
-## Deployment (Interserver $3 VPS, one per client)
+## Roadmap
 
-```sh
-cp .env.example .env   # set JWT_SECRET + DOMAIN
-npm run build && npm run db:seed
-docker compose up --build -d
-# Caddy: caddy reverse-proxy --from shop.example.com --to 127.0.0.1:3000
-```
+- `DATABASE_URL` acceptance run against live Postgres on the VPS (code paths verified, awaiting a Docker host)
+- CSV catalog import for large seasonal drops
+- CI workflow (lint + typecheck + build), license file, issue templates
 
 ## License
 

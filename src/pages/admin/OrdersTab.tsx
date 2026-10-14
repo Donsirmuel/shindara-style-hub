@@ -11,6 +11,7 @@ import {
   type AdminOrder, type OrderPayment, type OrderStatus,
 } from '@/lib/api';
 import { customerWhatsAppLink, formatPrice } from '@/lib/format';
+import { downloadCsv, toCsv } from '@/lib/csv';
 import { site } from '@/site.config';
 import { ConfirmButton } from '@/components/ConfirmButton';
 
@@ -147,6 +148,35 @@ export function OrdersTab() {
   const filtered = filter === 'all' ? searched : searched.filter((o) => o.status === filter);
   const pending = data.filter((o) => o.status === 'pending').length;
 
+  const exportCsv = () => {
+    if (!filtered.length) {
+      toast.info('Nothing to export with the current filter.');
+      return;
+    }
+    const contact = (o: AdminOrder): Record<string, string> => {
+      try {
+        return JSON.parse(o.contactJson) as Record<string, string>;
+      } catch {
+        return {};
+      }
+    };
+    downloadCsv(
+      `orders-${filter}-${new Date().toISOString().slice(0, 10)}`,
+      toCsv(
+        ['ref', 'status', 'fulfillment', 'payment', 'subtotal', 'total', 'name', 'phone', 'email', 'address'],
+        filtered.map((o) => {
+          const c = contact(o);
+          return [
+            o.id, o.status, o.fulfillment, o.payment, o.subtotal, o.total,
+            `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim(), c.phone ?? '', c.email ?? '',
+            [c.address, c.city, c.state].filter(Boolean).join(', '),
+          ];
+        }),
+      ),
+    );
+    toast.success(`Exported ${filtered.length} orders.`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -156,6 +186,7 @@ export function OrdersTab() {
           placeholder="Search ref or phone — e.g. SH-482913"
           className="max-w-xs font-mono"
         />
+        <Button size="sm" variant="outline" onClick={exportCsv}>Export CSV</Button>
         {(['all', 'pending', 'confirmed', 'ready', 'completed', 'cancelled'] as const).map((s) => (
           <Button key={s} size="sm" variant={filter === s ? 'default' : 'outline'} className="rounded-full capitalize" onClick={() => setFilter(s)}>
             {s}{s === 'pending' && pending > 0 ? ` (${pending})` : ''}

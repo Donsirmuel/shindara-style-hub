@@ -16,6 +16,7 @@ import {
   adminSetTiers, adminSetVariantStock, adminUpdateProduct, adminUploadImage, ApiError,
   type AdminProductInput,
 } from '@/lib/api';
+import { downloadCsv, toCsv } from '@/lib/csv';
 import { useCategories, useProductDetail } from '@/hooks/useProducts';
 import { formatPrice } from '@/lib/format';
 import { site } from '@/site.config';
@@ -450,9 +451,11 @@ export function ProductsTab() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['admin-products'], queryFn: adminListProducts });
   const [search, setSearch] = useState('');
   const [restockOnly, setRestockOnly] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    setSelected([]);
     // Shop grids cache the same rows under ['products', ...].
+    queryClient.invalidateQueries({ queryKey: ['admin-products'] });
     queryClient.invalidateQueries({ queryKey: ['products'] });
   };
   const duplicate = useMutation({
@@ -471,6 +474,42 @@ export function ProductsTab() {
     return `${p.name} ${p.id} ${p.category}`.toLowerCase().includes(q);
   });
   const lowCount = (data ?? []).filter(isLow).length;
+
+  const exportCsv = () => {
+    if (!visible.length) {
+      toast.info('Nothing to export with the current filter.');
+      return;
+    }
+    downloadCsv(
+      `products-${new Date().toISOString().slice(0, 10)}`,
+      toCsv(
+        ['id', 'name', 'price', 'category', 'gender', 'visible', 'featured', 'stock_total', 'min_stock', 'bulk_tiers'],
+        visible.map((p) => [
+          p.id, p.name, p.price, p.category, p.gender,
+          p.inStock ? 'yes' : 'no', p.featured ? 'yes' : 'no',
+          p.stockTotal ?? '', p.minStock ?? '',
+          (p.tiers ?? []).map((t) => `${t.minQty}+@${t.price}`).join(' '),
+        ]),
+      ),
+    );
+    toast.success(`Exported ${visible.length} products.`);
+  };
+
+  const bulkSet = useMutation({
+    mutationFn: async (patch: { featured?: boolean; inStock?: boolean }) => {
+      await Promise.all(selected.map((id) => adminUpdateProduct(id, patch)));
+    },
+    onSuccess: (_d, patch) => {
+      toast.success(
+        patch.featured === true ? `${selected.length} marked featured`
+        : patch.featured === false ? `${selected.length} unfeatured`
+        : patch.inStock === false ? `${selected.length} hidden from shop`
+        : `${selected.length} made visible`,
+      );
+      refresh();
+    },
+    onError: () => toast.error('Bulk update hit an error — some items may have changed. Reloading.'),
+  });
 
   return (
     <div className="space-y-4">
@@ -493,6 +532,27 @@ export function ProductsTab() {
         </div>
         <ProductDialog onSaved={refresh} />
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" onClick={exportCsv}>Export CSV</Button>
+        {selected.length > 0 && (
+          <>
+            <span className="text-xs font-semibold text-muted-foreground">{selected.length} selected</span>
+            <Button size="sm" variant="outline" disabled={bulkSet.isPending} onClick={() => bulkSet.mutate({ featured: true })}>Feature</Button>
+            <Button size="sm" variant="outline" disabled={bulkSet.isPending} onClick={() => bulkSet.mutate({ featured: false })}>Unfeature</Button>
+            <Button size="sm" variant="outline" disabled={bulkSet.isPending} onClick={() => bulkSet.mutate({ inStock: true })}>Unhide</Button>
+            <ConfirmButton
+              title={`Hide ${selected.length} products?`}
+              message="They leave the shop immediately but stay editable here, with history intact."
+              confirmLabel="Hide all"
+              busy={bulkSet.isPending}
+              onConfirm={() => bulkSet.mutate({ inStock: false })}
+            >
+              <Button size="sm" variant="ghost" className="text-destructive">Hide</Button>
+            </ConfirmButton>
+            <Button size="sm" variant="ghost" onClick={() => setSelected([])}>Clear</Button>
+          </>
+        )}
+      </div>
       <p className="text-sm text-muted-foreground">{data ? `${visible.length} of ${data.length} products` : ' '}</p>
       {isLoading ? (
         <p className="py-10 text-center text-sm text-muted-foreground">Loading products…</p>
@@ -505,6 +565,13 @@ export function ProductsTab() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={visible.length > 0 && visible.every((p) => selected.includes(p.id))}
+                    onCheckedChange={(v) => setSelected(v === true ? visible.map((p) => p.id) : [])}
+                    aria-label="Select all listed products"
+                  />
+                </TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead>Bulk</TableHead>
@@ -514,6 +581,13 @@ export function ProductsTab() {
             <TableBody>
               {visible.map((p) => (
                 <TableRow key={p.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.includes(p.id)}
+                      onCheckedChange={(v) => setSelected(v === true ? [...selected, p.id] : selected.filter((id) => id !== p.id))}
+                      aria-label={`Select ${p.name}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       {p.images[0] && <img src={p.images[0]} alt="" className="h-10 w-9 rounded-md object-cover" />}
